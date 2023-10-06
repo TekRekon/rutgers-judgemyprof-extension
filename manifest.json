@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "Rutgers RateMyProfessors",
+    "description": "Display the RateMyProfessors ratings for Rutgers professors on WebReg",
+    "version": "1.0",
+
+    "content_scripts": [{
+        "matches": ["https://sims.rutgers.edu/webreg/courseLookup.htm?_flowId=lookup-flow"],
+        "js": ["content.js"]
+    }],
+
+    "externally_connectable": {
+        "matches": ["https://ratemyprofessors.com/*"]
+    }
+}
