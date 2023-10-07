@@ -27,15 +27,12 @@ const puppeteer = require('puppeteer');
                 return matches ? matches.length : 0;
               }, quality);
             if (numProfs == 1) {
-                const zero = '0 ratings';
-
-                const hasNoRatings = await page.evaluate((zero) => {
-                    const pageText = document.body.innerText;
-                    return pageText.includes(zero);
-                  }, zero);
-                if (hasNoRatings) {
-                    console.log('N/A');
-                }  
+                const hasNoRatings = await page.evaluate(() => {
+                    const numRatings = document.querySelector('.CardNumRating__CardNumRatingCount-sc-17t4b9u-3');
+                    if (numRatings.innerHTML === '0 ratings') {
+                        console.log('N/A');
+                    }
+                  });
             }
 
             const highestRating = await page.evaluate(() => {
@@ -68,6 +65,6 @@ const puppeteer = require('puppeteer');
         // console.log(grabRating);
         await browser.close();
     }
-    scrapeRating('john', 'smith'); 
+    scrapeRating('ana', 'centeno'); 
 
 })();
