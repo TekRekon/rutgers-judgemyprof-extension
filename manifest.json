@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Rutgers RateMyProfessors",
+    "name": "Rutgers JudgeMyProfessor",
     "description": "Display the RateMyProfessors ratings for Rutgers professors on WebReg",
     "version": "1.0",
 
@@ -11,5 +11,9 @@
 
     "externally_connectable": {
         "matches": ["https://ratemyprofessors.com/*"]
+    },
+    "action": {
+        "default_popup": "jmp_popup.html",
+        "default_icon": "logo.jpg"
     }
 }
