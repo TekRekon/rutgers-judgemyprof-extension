@@ -43,7 +43,12 @@ async function runCode() {
         }
     }
 
-    // Function to check if two arrays are equal
+    //TODO - use uniqueClassProfs array and corresponding ratings to cache values
+    //TODO - cache values by querying a database through the server
+    //TODO - ensure correct professor is scraped using their department name
+    //TODO - scrape other metrics about each professor
+    //TODO - scrape Rutgers SIRS data
+    //TODO - OnHover popup for professor rating
     function arraysAreEqual(arr1, arr2) {
         if (arr1.length !== arr2.length) {
             return false;
@@ -60,7 +65,6 @@ async function runCode() {
         return true;
     }
 
-// Function to add unique lists and lists of lists to a list
     function addUniqueList(list, uniqueList) {
         for (let i = 0; i < list.length; i++) {
             if (arraysAreEqual(list[i], uniqueList)) {
@@ -120,9 +124,9 @@ async function runCode() {
             // Define the color stops
             const colorStops = [
               { value: 0.0, color: '#8B0000' },   // Dark Red
-              { value: 2.0, color: '#FFA500' },   // Orange
+              { value: 2.0, color: '#d98e00' },   // Orange
               { value: 3.0, color: '#FFFF00' },   // Yellow
-              { value: 4.0, color: '#90EE90' },   // Light Green
+              { value: 4.0, color: '#6eda6e' },   // Light Green
               { value: 5.0, color: '#008000' },   // Dark Green
             ];
           
@@ -173,8 +177,6 @@ async function runCode() {
           textElement.style.color = hexColor;
           textElement.style.fontWeight = 'bold';
           textElement.style.fontSize = '15px';
-          
-        
 
         addUniqueList(uniqueClassProfs, profs);
 
