@@ -1,5 +1,5 @@
 async function fetchRatingBothNames(firstName, lastName) {
-    const apiUrl = `http://localhost:3000/scrape/${firstName}/${lastName}`;
+    const apiUrl = `https://tranquil-springs-63568-94e3972b77d5.herokuapp.com/scrape/${firstName}/${lastName}`;
 
     try {
         const response = await fetch(apiUrl);
@@ -11,10 +11,11 @@ async function fetchRatingBothNames(firstName, lastName) {
     return data;
     } catch (err) {
         console.log(err);
+        return 'N/A';
     }
 }
 async function fetchRatingLastName(lastName) {
-    const apiUrl = `http://localhost:3000/scrape/${lastName}`;
+    const apiUrl = `https://tranquil-springs-63568-94e3972b77d5.herokuapp.com/scrape/${lastName}`;
 
     try {
         const response = await fetch(apiUrl);
@@ -26,6 +27,7 @@ async function fetchRatingLastName(lastName) {
     return data;
     } catch (err) {
         console.log(err);
+        return 'N/A';
     }
 }
 
@@ -75,7 +77,7 @@ async function runCode() {
     for (let i = 0; i < instructors.length; i++) {
         const textElement = document.createElement("span");
         textElement.id = "professorRatingElement";
-        textElement.textContent = "SampleText";
+        textElement.textContent = "Loading...";
 
         // Insert the new text element after the current instructor element
         instructors[i].insertAdjacentElement("afterend", textElement);
