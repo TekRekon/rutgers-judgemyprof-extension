@@ -1,42 +1,36 @@
-function fetchRatingBothNames(firstName, lastName) {
+async function fetchRatingBothNames(firstName, lastName) {
     const apiUrl = `http://localhost:3000/scrape/${firstName}/${lastName}`;
 
-    fetch(apiUrl)
-    .then((response) => {
+    try {
+        const response = await fetch(apiUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
-    return response.text(); // Parse the response JSON
-    })
-    .then((data) => {
-    // Handle the data from the API
-        console.log(data);
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
+    const data = await response.text();
+    console.log(data);
+    return data;
+    } catch (err) {
+        console.log(err);
+    }
 }
-function fetchRatingLastName(lastName) {
+async function fetchRatingLastName(lastName) {
     const apiUrl = `http://localhost:3000/scrape/${lastName}`;
 
-    fetch(apiUrl)
-    .then((response) => {
+    try {
+        const response = await fetch(apiUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
-    return response.text(); // Parse the response JSON
-    })
-    .then((data) => {
-    // Handle the data from the API
-        console.log(data);
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
+    const data = await response.text();
+    console.log(data);
+    return data;
+    } catch (err) {
+        console.log(err);
+    }
 }
 
 //Inserts professor ratings into WebReg
-function runCode() {
+async function runCode() {
 
     const instructorColumnHeaders = document.getElementsByClassName("instructorColumnHeader");
     if (instructorColumnHeaders.length > 0) {
@@ -92,12 +86,29 @@ function runCode() {
         const firstName1 = professors[0].split(', ')[0]
         const lastName1 = professors[0].split(', ')[1]
         let profs = [ [firstName1, lastName1] ];
+        let rating = '0';
+        let rating2 = '0';
+        if (lastName1 == null) {
+            rating = await fetchRatingLastName(firstName1);
+        } else {
+            rating = await fetchRatingBothNames(firstName1, lastName1);
+        }
 
         if (professors[1]) {
             const firstName2 = professors[1].split(', ')[0]
             const lastName2 = professors[1].split(', ')[1]
             profs = [ [firstName1, lastName1], [firstName2, lastName2] ];
+            if (lastName2 == null) {
+                rating2 = await fetchRatingLastName(lastName2);
+            } else {
+                rating2 = await fetchRatingBothNames(firstName2, lastName2);
+            }
         }
+        if (rating2 > rating) {
+            rating = rating2;
+        }
+        textElement.textContent = rating;
+        
 
         addUniqueList(uniqueClassProfs, profs);
 
