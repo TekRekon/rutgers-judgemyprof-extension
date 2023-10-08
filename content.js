@@ -109,7 +109,71 @@ async function runCode() {
         if (rating2 > rating) {
             rating = rating2;
         }
+
         textElement.textContent = rating;
+        function numberToHexColor(number) {
+            // Ensure the input is within the valid range
+            if (number < 0.0 || number > 5.0) {
+              throw new Error('Input number must be between 0.0 and 5.0');
+            }
+          
+            // Define the color stops
+            const colorStops = [
+              { value: 0.0, color: '#8B0000' },   // Dark Red
+              { value: 2.0, color: '#FFA500' },   // Orange
+              { value: 3.0, color: '#FFFF00' },   // Yellow
+              { value: 4.0, color: '#90EE90' },   // Light Green
+              { value: 5.0, color: '#008000' },   // Dark Green
+            ];
+          
+            // Find the two closest color stops
+            let startIndex = 0;
+            let endIndex = 1;
+            for (let i = 1; i < colorStops.length; i++) {
+              if (number < colorStops[i].value) {
+                endIndex = i;
+                break;
+              }
+              startIndex = i;
+            }
+          
+            // Interpolate between the two color stops
+            const startColor = colorStops[startIndex].color;
+            const endColor = colorStops[endIndex].color;
+            const startValue = colorStops[startIndex].value;
+            const endValue = colorStops[endIndex].value;
+          
+            const gradient = (number - startValue) / (endValue - startValue);
+            const interpolatedColor = interpolateColors(startColor, endColor, gradient);
+          
+            return interpolatedColor;
+          }
+          
+          // Helper function to interpolate between two colors
+          function interpolateColors(startColor, endColor, factor) {
+            const startHex = parseInt(startColor.slice(1), 16);
+            const endHex = parseInt(endColor.slice(1), 16);
+          
+            const r1 = (startHex >> 16) & 255;
+            const g1 = (startHex >> 8) & 255;
+            const b1 = startHex & 255;
+          
+            const r2 = (endHex >> 16) & 255;
+            const g2 = (endHex >> 8) & 255;
+            const b2 = endHex & 255;
+          
+            const r = Math.round(r1 + factor * (r2 - r1));
+            const g = Math.round(g1 + factor * (g2 - g1));
+            const b = Math.round(b1 + factor * (b2 - b1));
+          
+            return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+          }
+          
+          const hexColor = numberToHexColor(rating);
+          textElement.style.color = hexColor;
+          textElement.style.fontWeight = 'bold';
+          textElement.style.fontSize = '15px';
+          
         
 
         addUniqueList(uniqueClassProfs, profs);
