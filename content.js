@@ -1,3 +1,39 @@
+function fetchRatingBothNames(firstName, lastName) {
+    const apiUrl = `http://localhost:3000/scrape/${firstName}/${lastName}`;
+
+    fetch(apiUrl)
+    .then((response) => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return response.text(); // Parse the response JSON
+    })
+    .then((data) => {
+    // Handle the data from the API
+        console.log(data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
+function fetchRatingLastName(lastName) {
+    const apiUrl = `http://localhost:3000/scrape/${lastName}`;
+
+    fetch(apiUrl)
+    .then((response) => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return response.text(); // Parse the response JSON
+    })
+    .then((data) => {
+    // Handle the data from the API
+        console.log(data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
 
 //Inserts professor ratings into WebReg
 function runCode() {
