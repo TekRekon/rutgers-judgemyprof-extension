@@ -1,86 +1,27 @@
-const puppeteer = require('puppeteer');
 
-var professorName = "";
-var professorSearchPage = "";
-var professorRating = "";
+function runCode() {
+    instructors = document.getElementsByClassName("instructors");
+    for (let i = 0; i < instructors.length; i++) {
+        const textElement = document.createElement("span");
+        textElement.id = "professorRatingElement";
+        textElement.textContent = "SampleText";
+        instructors[i].style.marginRight = "-80px";
 
-var professorIndex = 0;
-    var currentProfessor = "";
-
-    var professorsOnPage = document.getElementsByClassName("instructors");
-
-    while (professorIndex < professorsOnPage.length) {
-
-        getProfessorName(professorIndex);
-        currentProfessor = professorName;
-
-        if (currentProfessor != undefined) 
-        {
-            getProfessorSearchPage(currentProfessor);
-        }
-
-        professorIndex++;
+        // Insert the new text element after the current instructor element
+        instructors[i].insertAdjacentElement("afterend", textElement);
     }
-
-function getProfessorName (indexOfProfessor) 
-{
-    try
-	{
-        var profsOnPage = document.getElementsByClassName("instructors");
-
-		professorName = profsOnPage[indexOfProfessor].innerHTML;
-	}
-	catch (err)
-	{
-		professorName = "undefined"
-	}
 }
 
-async function getProfessorSearchPage (CurrentProfessor)
-{
-    var comma = CurrentProfessor.indexOf(',');
-    var lastName = CurrentProfessor.substring(0, comma);
-    var firstName = CurrentProfessor.substring(comma + 2);
+if (window.location.href.includes('/soc')) {
+    //check if professor ratings are propagated, otherwise propagate the values
+    function checkForElement() {
+        const element = document.getElementById("professorRatingElement");
 
-    professorSearchPage = 'https://www.ratemyprofessors.com/search/teachers?query=' + firstName + '%20' + lastName + '&sid=U2Nob29sLTgyNQ==';
-
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.goto(professorSearchPage);
-    const data = await page.evaluate(() => {
-        var professorID = document.querySelector('.TeacherCard__StyledTeacherCard-syjs0d-0.dLJIlx').getAttribute('href');
-    });
-
-    professorSearchPage = "https://www.ratemyprofessors.com" + professorID;
-
-    getProfessorRating(professorSearchPage);
-}
-
-async function getProfessorRating(ProfessorSearchPage) 
-{
-
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.goto(professorSearchPage);
-    const data = await page.evaluate(() => {
-        professorRating = (document.querySelector('.RatingValue__Numerator-qw8sqy-2.liyUjw')).innerHTML;
-    });
-    
-    addRatingToPage(professorRating);
-}
-
-function addRatingToPage (ProfessorRating)
-{
-    var profOnPage = document.getElementsByClassName("instructors");
-
-    (profOnPage[professorIndex]).innerHTML = (profOnPage[professorIndex]).innerHTML + ProfessorRating;
-
-    resetValues();
-}
-function resetValues()
-{
-    professorName = "";
-	currentProfessor = "";
-	professorSearchPage = "";
-	professorRating = "";
+        if (element) {
+            //pass
+        } else {
+            runCode();
+        }
+    }
+    const interval = setInterval(checkForElement, 5000); // Check every 5 second
 }
