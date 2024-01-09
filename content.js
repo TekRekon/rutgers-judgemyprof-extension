@@ -1,35 +1,10 @@
-async function fetchRatingBothNames(firstName, lastName) {
-    const apiUrl = `https://tranquil-springs-63568-94e3972b77d5.herokuapp.com/scrape/${firstName}/${lastName}`;
+import * as ratings from './rating.js';
 
-    try {
-        const response = await fetch(apiUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    const data = await response.text();
-    console.log(data);
-    return data;
-    } catch (err) {
-        console.log(err);
-        return 'N/A';
-    }
-}
-async function fetchRatingLastName(lastName) {
-    const apiUrl = `https://tranquil-springs-63568-94e3972b77d5.herokuapp.com/scrape/${lastName}`;
+//fetch ana centeno
+ratings.getProfessorRatings('ana centeno').then((result) => {
+    console.log(result);
+});
 
-    try {
-        const response = await fetch(apiUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    const data = await response.text();
-    console.log(data);
-    return data;
-    } catch (err) {
-        console.log(err);
-        return 'N/A';
-    }
-}
 
 //Inserts professor ratings into WebReg
 async function runCode() {
@@ -77,6 +52,7 @@ async function runCode() {
     const uniqueClassProfs = [];
 
 
+    let instructors;
     instructors = document.getElementsByClassName("instructors");
     for (let i = 0; i < instructors.length; i++) {
         const textElement = document.createElement("span");
@@ -89,30 +65,17 @@ async function runCode() {
         const textContent = instructors[i].textContent;
         const professors = textContent.split('; ');
 
-        const firstName1 = professors[0].split(', ')[0]
-        const lastName1 = professors[0].split(', ')[1]
-        let profs = [ [firstName1, lastName1] ];
-        let rating = '0';
-        let rating2 = '0';
-        if (lastName1 == null) {
-            rating = await fetchRatingLastName(firstName1);
-        } else {
-            rating = await fetchRatingBothNames(firstName1, lastName1);
-        }
-
-        if (professors[1]) {
-            const firstName2 = professors[1].split(', ')[0]
-            const lastName2 = professors[1].split(', ')[1]
-            profs = [ [firstName1, lastName1], [firstName2, lastName2] ];
-            if (lastName2 == null) {
-                rating2 = await fetchRatingLastName(lastName2);
-            } else {
-                rating2 = await fetchRatingBothNames(firstName2, lastName2);
+        let prof_stats = null;
+        //retrieve first prof rating from ratings
+        for (let j = 0; j < professors.length; j++) {
+            prof_stats = await ratings.getProfessorRatings(professors[0]);
+            if (prof_stats != null) {
+                break;
             }
         }
-        if (rating2 > rating) {
-            rating = rating2;
-        }
+        let rating = 'N/A'
+
+
 
         textElement.textContent = rating;
         function numberToHexColor(number) {
@@ -172,9 +135,11 @@ async function runCode() {
           
             return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
           }
-          
-          const hexColor = numberToHexColor(rating);
-          textElement.style.color = hexColor;
+          //TODO colors might break rating might be string or NA
+          if (rating !== 'N/A') {
+              const hexColor = numberToHexColor(rating);
+              textElement.style.color = hexColor;
+          }
           textElement.style.fontWeight = 'bold';
           textElement.style.fontSize = '15px';
 
