@@ -18,10 +18,6 @@ dist/
 *.tmp
 *.bak
 
-# Ignore npm package lock files
-package-lock.json
-yarn.lock
-
 # Ignore any user-specific files
 .DS_Store
 Thumbs.db
