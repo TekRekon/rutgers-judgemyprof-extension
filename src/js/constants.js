@@ -1,9 +1,4 @@
-import * as ratings from './rating.js';
-
-//fetch ana centeno
-ratings.getProfessorRatings('ana centeno').then((result) => {
-    console.log(result);
-});
+export const AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
 
 export const CAMPUS_CODES = {
     NEWARK: 'NK',

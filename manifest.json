@@ -9,7 +9,7 @@
             "https://sims.rutgers.edu/webreg/*",
             "*://sis.rutgers.edu/*"
         ],
-        "js": ["content.js"],
+        "js": ["src/js/content.js"],
         "all_frames": true
     }],
 
@@ -17,13 +17,13 @@
         "matches": ["https://ratemyprofessors.com/*"]
     },
     "action": {
-        "default_popup": "jmp_popup.html",
-        "default_icon": "logo128.png"
+        "default_popup": "src/html/jmp_popup.html",
+        "default_icon": "src/assets/icons/logo128.png"
     },
     "icons": {
-        "16": "logo16.png",
-        "32": "logo32.png",
-        "48": "logo48.png",
-        "128": "logo128.png"
+        "16": "src/assets/icons/logo16.png",
+        "32": "src/assets/icons/logo32.png",
+        "48": "src/assets/icons/logo48.png",
+        "128": "src/assets/icons/logo128.png"
     }
 }
