@@ -1,4 +1,35 @@
 export const AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
+export const API_URL = "https://www.ratemyprofessors.com/graphql";
+
+export const ProfessorIDQuery = `
+query ($query: TeacherSearchQuery!, $first: Int!) {
+    newSearch {
+        teachers(query: $query, first: $first) {
+            edges {
+                node {
+                    id
+                }
+            }
+        }
+    }
+}`;
+
+export const ProfessorStatsQuery = `
+query ($id: ID!) {
+    node(id: $id) {
+        ... on Teacher {
+            id
+            department
+            legacyId
+            firstName
+            lastName
+            avgRating
+            numRatings
+            avgDifficulty
+            wouldTakeAgainPercent
+        }
+    }
+}`;
 
 export const CAMPUS_CODES = {
     NEWARK: 'NK',
