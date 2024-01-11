@@ -1,6 +1,5 @@
 import * as constants from './constants.js';
 
-//TODO implement caching
 //TODO add other Rutgers schools
 //TODO select professor with more ratings
 //TODO auto check boxes on webreg
@@ -11,7 +10,9 @@ import * as constants from './constants.js';
     //
     //     console.error just prints out a red message to the browser developer tools javascript console and does not cause any changes of the execution flow.
 
-
+console.log("Background script running");
+const profStatsCache = new Map();
+const profIDCache = new Map();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.contentScriptQuery === 'fetchProfStats') {
@@ -34,6 +35,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 async function fetchProfessorID(profName) {
+    if (profIDCache.has(profName)) {
+        console.log("profIDCache hit");
+        return profIDCache.get(profName);
+    }
     const response = await fetch(constants.API_URL, {
         method: "POST",
         headers: {
@@ -51,10 +56,16 @@ async function fetchProfessorID(profName) {
     if (!response.ok) {
         throw new Error(`Fetch failed for profID ${profName}`);
     }
-    return response.json()
+    const profID = response.json();
+    profIDCache.set(profName, profID);
+    return profID;
 }
 
 async function fetchProfessorStats(profID) {
+    if (profStatsCache.has(profID)) {
+        console.log("profStatsCache hit");
+        return profStatsCache.get(profID);
+    }
     const response = await fetch(constants.API_URL, {
         method: "POST",
         headers: {
@@ -70,5 +81,7 @@ async function fetchProfessorStats(profID) {
     if (!response.ok) {
         throw new Error(`Fetch failed for profStats with ID ${profID}`);
     }
-    return response.json();
+    const profStats = response.json();
+    profStatsCache.set(profID, profStats);
+    return profStats;
 }
