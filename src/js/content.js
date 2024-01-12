@@ -11,17 +11,18 @@ function addRatingToInstructorElements(subjectElement) {
 
     instructorElements.forEach(function(elem) {
         if (!elem.querySelector('.ratingText')) {
-            const ratingElement = document.createElement('span');
+            const ratingElement = document.createElement('div');
             ratingElement.className = 'ratingText';
             ratingElement.id = 'rating';
             ratingElement.textContent = 'Loading...';
-            ratingElement.style.fontSize = '14px';
+            ratingElement.style.fontSize = '17px';
             ratingElement.style.display = 'inline-block';
             ratingElement.style.padding = '8px';
-            ratingElement.style.backgroundColor = 'gray';
+            ratingElement.style.backgroundColor = 'lightgray';
             ratingElement.style.borderRadius = '10px';
             ratingElement.style.marginLeft = "30px";
-            ratingElement.style.marginRight = "10px";
+            ratingElement.style.marginRight = "2px";
+            ratingElement.style.fontWeight = "bold";
             const profName = document.createElement("div");
             const dept = document.createElement("div");
             const rating = document.createElement("div");
@@ -75,8 +76,39 @@ function addRatingToInstructorElements(subjectElement) {
                         const diff = response.data.avgDifficulty;
                         difficulty.textContent = "Level Of Difficulty: " + diff;
                         difficulty.style.marginBottom = "5px";
-                        const takeAgain = response.data.wouldTakeAgainPercent;
+                        const takeAgain = Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100;
                         wta.textContent = "Would Take Again: " + takeAgain + "%";
+                        const link = getRMPLink(response.data.legacyId);
+                        ratingElement.onclick = function () {
+                            window.open(link, '_blank');
+                        };
+                        ratingElement.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
+                        // ratingElement.style.boxShadow = "0 5px 10px rgba(0, 0, 0, 0.3)";
+                        ratingElement.style.cursor = "pointer";
+                        const ratingContent = ratingElement.textContent;
+                        ratingElement.addEventListener("mouseover", () => {
+                            ratingCard.style.display = "inline-block";
+                            ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+                            ratingElement.style.padding = "10px";
+                        });
+                        ratingElement.addEventListener("mouseleave", () => {
+                            ratingCard.style.display = "none";
+                            ratingElement.textContent = ratingContent;
+                            ratingElement.style.boxShadow = "none";
+                            ratingElement.style.padding = "8px";
+                        });
+                        ratingElement.addEventListener("mousedown", () => {
+                            ratingElement.style.transform = "translateY(2px)";
+                        });
+                        ratingElement.addEventListener("mouseup", () => {
+                            ratingElement.style.transform = "translateY(-2px)";
+                        });
+                        ratingCard.addEventListener("mouseover", () => {
+                            ratingCard.style.display = "inline-block";
+                        });
+                        ratingCard.addEventListener("mouseleave", () => {
+                            ratingCard.style.display = "none";
+                        });
                     }
                 })
                 .catch(error => {
@@ -111,12 +143,6 @@ function addRatingToInstructorElements(subjectElement) {
             ratingCard.appendChild(details);
             details.appendChild(difficulty);
             details.appendChild(wta);
-            ratingElement.addEventListener("mouseover", () => {
-                ratingCard.style.display = "inline-block";
-            });
-            ratingElement.addEventListener("mouseleave", () => {
-                ratingCard.style.display = "none";
-            });
         }
     });
 }
@@ -147,6 +173,10 @@ async function fetchProfStats(profName) {
             reject(error);
         }
     });
+}
+
+function getRMPLink (id) {
+    return "https://www.ratemyprofessors.com/professor/" + id;
 }
 
 
