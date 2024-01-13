@@ -13,6 +13,13 @@
         "js": ["./src/js/content.js"],
         "all_frames": true
     }],
+    "icons": {
+        "16": "./src/assets/icons/logo16.png",
+        "32": "./src/assets/icons/logo32.png",
+        "48": "./src/assets/icons/logo48.png",
+        "96": "./src/assets/icons/logo96.png",
+        "128": "./src/assets/icons/logo128.png"
+    },
     "host_permissions": ["https://www.ratemyprofessors.com/graphql/*"],
     "background": {
         "service_worker": "./src/js/background.js"
@@ -23,12 +30,12 @@
     },
     "action": {
         "default_popup": "./src/html/jmp_popup.html",
-        "default_icon": "./src/assets/icons/logoOriginal.png"
-    },
-    "icons": {
-        "16": "./src/assets/icons/logo16.png",
-        "32": "./src/assets/icons/logo32.png",
-        "48": "./src/assets/icons/logo48.png",
-        "128": "./src/assets/icons/logo128.png"
+        "default_icon": {
+            "16": "./src/assets/icons/logo16.png",
+            "32": "./src/assets/icons/logo32.png",
+            "48": "./src/assets/icons/logo48.png",
+            "96": "./src/assets/icons/logo96.png",
+            "128": "./src/assets/icons/logo128.png"
+        }
     }
 }
