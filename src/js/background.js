@@ -1,26 +1,24 @@
-import * as constants from './constants.js';
+importScripts("./constants.js");
+importScripts("./fuse.js");
 
-//TODO add other Rutgers schools
-//TODO select professor with more ratings
+
 //TODO auto check boxes on webreg
-//TODO ensure correct professor is scraped using their department name
-//TODO check for length 0 responses from fetchProfessorID and fetchProfessorStats
+
 //TODO organize error handling:
     // throw ... raises an exception in the current code block and causes it to exit, or to flow to next catch statement if raised in a try block.
     //
     //     console.error just prints out a red message to the browser developer tools javascript console and does not cause any changes of the execution flow.
 
-console.log("Background script running");
 const profStatsCache = new Map();
 const profIDCache = new Map();
+const filteredProfCache = new Map();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.contentScriptQuery === 'fetchProfStats') {
         new Promise(async (resolve, reject) => {
             try {
-                const profID = await fetchProfessorID(request.profName);
-                const profStats = await fetchProfessorStats(profID.data.newSearch.teachers.edges[0].node.id);
-                resolve(profStats.data.node);
+                const profStats = await fetchMostLikelyProfessorID(request.profName, request.matchText);
+                resolve(profStats);
             } catch (error) {
                 reject(error.message);
             }
@@ -33,22 +31,92 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-
-async function fetchProfessorID(profName) {
-    if (profIDCache.has(profName)) {
-        console.log("profIDCache hit");
-        return profIDCache.get(profName);
+//attempt to filter most relevant professor
+async function fetchMostLikelyProfessorID(profName, matchText = "") {
+    if (!profName) {
+        return null;
     }
-    const response = await fetch(constants.API_URL, {
+    let filteredCacheKey = `${profName}_${matchText}`;
+    if (filteredProfCache.has(filteredCacheKey)) {
+        return filteredProfCache.get(filteredCacheKey);
+    }
+    //1) search for first 9 most relevant professors from top 3 schools
+    let profMap = new Map();
+
+    for (let i = 0; i < 3; i++) {
+        let school = SCHOOLS[i];
+        let profIDs = await fetchProfessorID(profName, school[0], 3);
+        let limit = profIDs ? profIDs.length : 0;
+        for (let j = 0; j < limit; j++) {
+            let profID = profIDs[j].node.id;
+            let profStats = await fetchProfessorStats(profID);
+            profMap.set(profID, profStats);
+        }
+    }
+    if (profMap.size === 0) {
+        filteredProfCache.set(filteredCacheKey, null);
+        return null;
+    }
+    if (profMap.size === 1) {
+        filteredProfCache.set(filteredCacheKey, profMap.values().next().value);
+        return profMap.values().next().value;
+    }
+
+    //2) Select professors that are tied in terms of their department which matches most closely to subject/class
+    const profDepartments = [];
+    profMap.forEach((value, key) => {
+        value.department = fetchAlias(value.department, false);
+        profDepartments.push(value.department);
+
+    });
+    const fuse = new Fuse(profDepartments, FUSE_OPTIONS);
+    const result = fuse.search(matchText);
+
+    //Remove professors that are not from departments that tie for lowest (best) score from the result
+    const lowestScore = result[0].score;
+    for (let i = 1; i < result.length; i++) {
+        if (result[i].score !== lowestScore) {
+            profMap.forEach((value, key) => {
+                if (value.department === result[i].item) {
+                    profMap.delete(key);
+                }
+            });
+        }
+    }
+
+    //3) Select professor with  most ratings
+    let maxRatings = -1;
+    let maxProfID = null;
+    profMap.forEach((value, key) => {
+        if (value.numRatings > maxRatings) {
+            maxRatings = value.numRatings;
+            maxProfID = key;
+        }
+    });
+    profMap.get(maxProfID).department = fetchAlias(profMap.get(maxProfID).department, true);
+    filteredProfCache.set(filteredCacheKey, profMap.get(maxProfID));
+    return profMap.get(maxProfID);
+}
+
+
+async function fetchProfessorID(profName, schoolID, first = 1) {
+    const cacheKey = `${profName}_${schoolID}`;
+    if (!profName) {
+        return null;
+    }
+    if (profIDCache.has(cacheKey)) {
+        return profIDCache.get(cacheKey);
+    }
+    const response = await fetch(API_URL, {
         method: "POST",
         headers: {
-            Authorization: constants.AUTHORIZATION_TOKEN,
+            Authorization: AUTHORIZATION_TOKEN,
         },
         body: JSON.stringify({
-            query: constants.ProfessorIDQuery,
+            query: ProfessorIDQuery,
             variables: {
-                first: 1,    //Number of relevant professors to fetch
-                query: { text: profName, schoolID: constants.SCHOOLS[0][0] },
+                first: first,    //Number of relevant professors to fetch
+                query: { text: profName, schoolID: schoolID },
             },
         }),
     });
@@ -56,23 +124,27 @@ async function fetchProfessorID(profName) {
     if (!response.ok) {
         throw new Error(`Fetch failed for profID ${profName}`);
     }
-    const profID = response.json();
-    profIDCache.set(profName, profID);
-    return profID;
+    const profIDjson = await response.json();
+    let idEdges = profIDjson.data.newSearch.teachers.edges;
+    if (idEdges.length === 0) {
+        profIDCache.set(cacheKey, null);
+        return null;
+    }
+    profIDCache.set(cacheKey, idEdges);
+    return idEdges;
 }
 
 async function fetchProfessorStats(profID) {
     if (profStatsCache.has(profID)) {
-        console.log("profStatsCache hit");
         return profStatsCache.get(profID);
     }
-    const response = await fetch(constants.API_URL, {
+    const response = await fetch(API_URL, {
         method: "POST",
         headers: {
-            Authorization: constants.AUTHORIZATION_TOKEN,
+            Authorization: AUTHORIZATION_TOKEN,
         },
         body: JSON.stringify({
-            query: constants.ProfessorStatsQuery,
+            query: ProfessorStatsQuery,
             variables: {
                 id: profID,
             },
@@ -81,7 +153,23 @@ async function fetchProfessorStats(profID) {
     if (!response.ok) {
         throw new Error(`Fetch failed for profStats with ID ${profID}`);
     }
-    const profStats = response.json();
-    profStatsCache.set(profID, profStats);
-    return profStats;
+    const profStatsjson = await response.json();
+    let statsNode = profStatsjson.data.node;
+    if (!statsNode || Object.keys(statsNode).length === 0) {
+        profStatsCache.set(profID, null);
+        return null;
+    }
+    profStatsCache.set(profID, statsNode);
+    return statsNode;
+}
+
+function fetchAlias(departmentName, reverse) {
+    if (reverse) {
+        for (let [key, value] of Object.entries(departmentAliases)) {
+            if (value === departmentName) {
+                return key;
+            }
+        }
+    }
+    return departmentAliases[departmentName];
 }

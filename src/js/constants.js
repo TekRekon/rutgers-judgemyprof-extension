@@ -1,7 +1,7 @@
-export const AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
-export const API_URL = "https://www.ratemyprofessors.com/graphql";
+self.AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
+self.API_URL = "https://www.ratemyprofessors.com/graphql";
 
-export const ProfessorIDQuery = `
+self.ProfessorIDQuery = `
 query ($query: TeacherSearchQuery!, $first: Int!) {
     newSearch {
         teachers(query: $query, first: $first) {
@@ -14,7 +14,7 @@ query ($query: TeacherSearchQuery!, $first: Int!) {
     }
 }`;
 
-export const ProfessorStatsQuery = `
+self.ProfessorStatsQuery = `
 query ($id: ID!) {
     node(id: $id) {
         ... on Teacher {
@@ -31,7 +31,11 @@ query ($id: ID!) {
     }
 }`;
 
-export const CAMPUS_CODES = {
+self.departmentAliases = {
+    "Genetics": "BioGenetics",
+}
+
+self.CAMPUS_CODES = {
     NEWARK: 'NK',
     CAMDEN: 'CM',
     NEW_BRUNSWICK: 'NB',
@@ -40,8 +44,17 @@ export const CAMPUS_CODES = {
     ONLINE_NEW_BRUNSWICK: 'ONLINE_NB',
 };
 
+const FUSE_OPTIONS = {
+    includeScore: true,
+    threshold: 1, // Lower threshold for more "fuzzy" matches
+    ignoreLocation: true, // Since we're not interested in where the term is in the string
+    minMatchCharLength: 0, // Minimum number of characters that must be matched for a result to be returned
+    findAllMatches: true, // Find all matches, regardless of score
+    isCaseSensitive: false, // Turn off case sensitivity
+};
+
 //sorted by number of professors rated in each school
-export const SCHOOLS = [
+self.SCHOOLS = [
     // Rutgers - State University of New Jersey - New Brunswick - 6407 profs
     [ 'U2Nob29sLTgyNQ==', 'Rutgers - State University of New Jersey - New Brunswick', 'NB' ],
 

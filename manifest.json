@@ -14,7 +14,7 @@
     }],
     "host_permissions": ["https://www.ratemyprofessors.com/graphql/*"],
     "background": {
-        "service_worker": "./src/js/background.js", "type": "module"
+        "service_worker": "./src/js/background.js"
     },
 
     "externally_connectable": {

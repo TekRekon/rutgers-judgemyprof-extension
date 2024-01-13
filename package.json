@@ -1,7 +1,6 @@
 {
   "type": "module",
   "dependencies": {
-    "@mtucourses/rate-my-professors": "^2.2.1",
-    "node-fetch": "^3.3.2"
+    "@mtucourses/rate-my-professors": "^2.2.1"
   }
 }

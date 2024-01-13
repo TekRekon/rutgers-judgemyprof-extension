@@ -8,11 +8,11 @@
 function addRatingToInstructorElements(subjectElement) {
     // Find all instructor elements within a dropdown
     const instructorElements = subjectElement.querySelectorAll('.instructors');
-    var searchSubject = document.getElementById('subjectTitle2');
-    var searchSubjectText = searchSubject.innerText;
+    let searchSubject = document.getElementById('subjectTitle2');
+    let searchSubjectText = searchSubject.innerText;
 
     instructorElements.forEach(function(elem) {
-        var courseName = findParentDiv(elem, "courseData").innerText;
+        let courseName = findParentDiv(elem, "courseData").innerText;
         if (!elem.querySelector('.ratingText')) {
             const ratingElement = document.createElement('div');
             ratingElement.className = 'ratingText';
@@ -38,7 +38,7 @@ function addRatingToInstructorElements(subjectElement) {
             const warning = document.createElement("div");
 
             // Fetch the professor's rating and update the text content
-            fetchProfStats(elem.textContent.trim())
+            fetchProfStats(elem.textContent.trim(), searchSubjectText+ " " + courseName)
                 .then(response => {
                     var prof = elem.textContent.trim().substring(0, elem.textContent.trim().length - 10);
                     ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
@@ -243,11 +243,12 @@ document.addEventListener('click', function(event) {
     }
 });
 
-async function fetchProfStats(profName) {
-    return new Promise((resolve, reject) => {
-        try {
+async function fetchProfStats(profName, matchText) {
+    try {
+        return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({
                 contentScriptQuery: 'fetchProfStats',
+                matchText: matchText,
                 profName: profName
             }, response => {
                 if (chrome.runtime.lastError) {
@@ -256,11 +257,12 @@ async function fetchProfStats(profName) {
                     resolve(response);
                 }
             });
-        } catch (error) {
-            console.error("Error fetching professor stats from content.js: ", error);
-            reject(error);
-        }
-    });
+        });
+    }
+    catch (error) {
+        return null;
+    }
+
 }
 
 function getRMPLink (id) {
