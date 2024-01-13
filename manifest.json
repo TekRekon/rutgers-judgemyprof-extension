@@ -29,7 +29,6 @@
         "matches": ["https://www.ratemyprofessors.com/graphql/*"]
     },
     "action": {
-        "default_popup": "./src/html/jmp_popup.html",
         "default_icon": {
             "16": "./src/assets/icons/logo16.png",
             "32": "./src/assets/icons/logo32.png",
