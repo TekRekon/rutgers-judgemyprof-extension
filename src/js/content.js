@@ -14,6 +14,71 @@ function addRatingToInstructorElements(subjectElement) {
     instructorElements.forEach(function(elem) {
         let courseName = findParentDiv(elem, "courseData").innerText;
         if (!elem.querySelector('.ratingText')) {
+
+            if (elem.textContent.trim().includes(";")) {
+                elem.style.marginRight = "13px";
+                const ratingElement = document.createElement('div');
+                styleRatingElement(ratingElement);
+
+                const profName = document.createElement("div");
+                const dept = document.createElement("div");
+                const rating = document.createElement("div");
+                const reviews = document.createElement("div");
+                const reviewsLink = document.createElement("a");
+                const difficulty = document.createElement("div");
+                const wta = document.createElement("div");
+                const warningBubble = document.createElement("div");
+                const warning = document.createElement("div");
+                const searchPopup = document.createElement("div");
+                const box = document.createElement("div");
+                const details = document.createElement("div");
+                const ratingCard = document.createElement('div');
+
+                stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details);
+
+                const profs = elem.textContent.trim().split(";");
+                for (let i = 0; i < profs.length; i++) {
+                    fetchProfStats(profs[i], searchSubjectText+ " " + courseName)
+                    .then(response => {
+                        var prof = profs[i];
+                        ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
+                        rating.textContent = ratingElement.textContent.trim();
+                        if (prof == "") {
+                            ratingElement.textContent = "N/A";
+                        }
+                        if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
+                            
+                            inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta)
+
+
+                            addEventListeners(ratingElement, ratingCard);
+
+                            if (!prof.includes(",")) { // check if professor Last Name is unavailable
+                                noFirstNameListed(ratingCard, warningBubble, warning);
+                            }
+                        }
+                        if (ratingElement.textContent == "N/A") { // check if rating is N/A
+                            noRating(ratingElement, searchPopup, prof);
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error occurred while fetching professor stats: ", error);
+                        ratingElement.textContent = 'N/A';
+                    });
+                    elem.appendChild(ratingElement);
+                    elem.appendChild(ratingCard);
+                    ratingCard.appendChild(profName);
+                    ratingCard.appendChild(dept);
+                    ratingCard.appendChild(box);
+                    box.appendChild(rating);
+                    box.appendChild(reviews);
+                    reviews.appendChild(reviewsLink);
+                    ratingCard.appendChild(details);
+                    details.appendChild(difficulty);
+                    details.appendChild(wta);
+                }
+            }
+
             elem.style.marginRight = "13px";
             const ratingElement = document.createElement('div');
             styleRatingElement(ratingElement);
@@ -45,80 +110,18 @@ function addRatingToInstructorElements(subjectElement) {
                         ratingElement.textContent = "N/A";
                     }
                     if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
-                        let ratingNum = parseFloat(ratingElement.textContent.trim());
-                        const ratingColor = getRatingColor(ratingNum);
-                        ratingElement.style.backgroundColor = ratingColor;
-                        rating.style.backgroundColor = ratingColor;
+                        
+                        inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta);
 
-                        // get professor data
-                        const profFirstName = response.data.firstName;
-                        const profLastName = response.data.lastName;
-                        profName.textContent = profFirstName + " " + profLastName;
-
-                        const deptName = response.data.department;
-                        dept.textContent = deptName;
-
-                        const numReviews = response.data.numRatings;
-                        reviewsLink.textContent = numReviews + " review(s)";
-                        reviewsLink.href = getRMPLink(response.data.legacyId);
-                        reviewsLink.target = "_blank";
-
-                        const diff = response.data.avgDifficulty;
-                        difficulty.textContent = "Level Of Difficulty: " + diff;
-
-                        var takeAgain = "";
-                        var tap = response.data.wouldTakeAgainPercent;
-                        if (tap == -1) {
-                            takeAgain = "N/A";
-                            wta.textContent = "Would Take Again: " + takeAgain;
-                        } else {
-                            takeAgain = String(Math.round((tap + Number.EPSILON) * 100) / 100); // round wouldTakeAgainPercent
-                            wta.textContent = "Would Take Again: " + takeAgain + "%";
-                        }
-
-                        const link = getRMPLink(response.data.legacyId);
-                        ratingElement.onclick = function () {
-                            window.open(link, '_blank');
-                        };
 
                         addEventListeners(ratingElement, ratingCard);
 
                         if (!prof.includes(",")) { // check if professor Last Name is unavailable
-                            ratingCard.appendChild(warningBubble);
-                            ratingCard.appendChild(warning);
-                            warningBubble.textContent = "?";
-                            warning.textContent = "Professor may be inaccurate: Only last name provided";
-                            
-                            styleWarning(warningBubble, warning);
-
-                            warningBubble.addEventListener("mouseover", () => {
-                                warning.style.display = "block";
-                            });
-                            warningBubble.addEventListener("mouseleave", () => {
-                                warning.style.display = "none";
-                            });
+                            noFirstNameListed(ratingCard, warningBubble, warning);
                         }
                     }
                     if (ratingElement.textContent == "N/A") { // check if rating is N/A
-                        ratingElement.appendChild(searchPopup);
-                        searchPopup.textContent = "Click to search";
-
-                        styleSearchPopup(searchPopup);
-
-                        if (prof == "") { // check is professor name is empty
-                            const link = "https://www.google.com/search?q=+bro+really+thought+there+was+a+professor+named+__+🗿💀";
-                            ratingElement.onclick = function () {
-                                window.open(link, '_blank');
-                            };
-                        } else {
-                            const link = "https://www.google.com/search?q=" + prof + "+rutgers+rate+my+professor";
-                            ratingElement.onclick = function () {
-                                window.open(link, '_blank');
-                            };
-                        }
-
-                        addNAEventListeners(ratingElement, searchPopup); 
-
+                        noRating(ratingElement, searchPopup, prof);
                     }
                 })
                 .catch(error => {
@@ -345,4 +348,74 @@ function addNAEventListeners(el, popup) {
         el.style.padding = "8px";
         popup.style.display = "none";
     });
+}
+
+function getWouldTakeAgain (percent) {
+    var again = "";
+    if (percent == -1) {
+        again = "Would Take Again: N/A";
+    } else {
+        again = "Would Take Again: " + String(Math.round((percent + Number.EPSILON) * 100) / 100) + "%";
+    }
+
+    return again;
+}
+
+function noFirstNameListed (card, bubble, message) {
+    card.appendChild(bubble);
+    card.appendChild(message);
+    bubble.textContent = "?";
+    message.textContent = "Professor may be inaccurate: only last name provided";
+
+    styleWarning(bubble, message);
+
+    bubble.addEventListener("mouseover", () => {
+        message.style.display = "block";
+    });
+    bubble.addEventListener("mouseleave", () => {
+        message.style.display = "none";
+    });
+}
+
+function noRating (el, popup, professor) {
+    el.appendChild(popup);
+    popup.textContent = "Click to search";
+
+    styleSearchPopup(popup);
+
+    if (professor == "") { // check is professor name is empty
+        const link = "https://www.google.com/search?q=+bro+really+thought+there+was+a+professor+named+__+🗿💀";
+        el.onclick = function () {
+            window.open(link, '_blank');
+        };
+    } else {
+        const link = "https://www.google.com/search?q=" + professor + "+rutgers+rate+my+professor";
+        el.onclick = function () {
+            window.open(link, '_blank');
+        };
+    }
+
+    addNAEventListeners(el, popup);
+}
+
+function inputProfData (ratingEl, rat, department, dep, firstName, lastName, prof, numRatings, avgDifficulty, diff, legacyId, rev, wouldTakeAgainPercent, takeAgain) {
+    let ratingNum = parseFloat(ratingEl.textContent.trim());
+    const ratingColor = getRatingColor(ratingNum);
+    ratingEl.style.backgroundColor = ratingColor;
+    rat.style.backgroundColor = ratingColor;
+
+    prof.textContent = firstName + " " + lastName;
+    dep.textContent = department;
+    const link = getRMPLink(legacyId);
+    rev.textContent = numRatings + " review(s)";
+    rev.href = link
+    rev.target = "_blank";
+    diff.textContent = "Level Of Difficulty: " + avgDifficulty;
+    var tap = wouldTakeAgainPercent;
+    takeAgain.textContent = getWouldTakeAgain(tap);
+
+    ratingEl.onclick = function () {
+        window.open(link, '_blank');
+    };
+
 }
