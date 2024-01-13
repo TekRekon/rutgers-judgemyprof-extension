@@ -3,11 +3,12 @@
     "name": "Rutgers JudgeMyProfessor",
     "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable insights into your professor's teaching quality",
     "version": "1.0",
-
     "content_scripts": [{
         "matches": [
-            "https://sims.rutgers.edu/webreg/*",
-            "*://sis.rutgers.edu/*"
+            "*://sims.rutgers.edu/webreg/*",
+            "*://sis.rutgers.edu/soc/*",
+            "*://sis.rutgers.edu/oldsoc/*",
+            "*://sims.rutgers.edu/csp/*"
         ],
         "js": ["./src/js/content.js"],
         "all_frames": true
@@ -22,7 +23,7 @@
     },
     "action": {
         "default_popup": "./src/html/jmp_popup.html",
-        "default_icon": "./src/assets/icons/logo128.png"
+        "default_icon": "./src/assets/icons/logoOriginal.png"
     },
     "icons": {
         "16": "./src/assets/icons/logo16.png",

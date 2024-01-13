@@ -1,3 +1,38 @@
 {
-  "type": "module"
+  "name": "rutgers-judgemyprofessor",
+  "version": "1.0.0",
+  "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable insights into your professor's teaching quality",
+  "author": "Lukas Siernos",
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {},
+  "keywords": [
+    "chrome-extension",
+    "Rutgers",
+    "RateMyProfessor",
+    "Rate My Professor",
+    "Rate My Professors",
+    "RateMyProfessors",
+    "Rate My Prof",
+    "Rutgers Rate My Professor",
+    "Chrome",
+    "Chrome Extension",
+    "college",
+    "extension",
+    "university registration",
+    "academic extension",
+    "Rutgers portal",
+    "Rutgers University",
+    "professor information",
+    "course registration"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TekRekon/rutgers-judgemyprof-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TekRekon/rutgers-judgemyprof-extension/issues"
+  },
+  "homepage": "https://github.com/TekRekon/rutgers-judgemyprof-extension#readme"
 }
