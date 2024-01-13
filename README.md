@@ -1,27 +1,34 @@
-# Rutgers Professor Ratings Chrome Extension
+# Rutgers JudgeMyProfessor Chrome Extension
 
-<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/949db18c-1822-4415-9ec7-ac1dc2502fac" alt="Extension Logo" width="200px">
+<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/28794b47-e832-4fa0-a4e0-a8f5622b1159" alt="Extension Logo" width="200px">
+
 
 
 ## Overview
 
-The **Rutgers Professor Ratings Chrome Extension** is a powerful tool designed to enhance the course registration and planning experience for Rutgers University students. This extension integrates seamlessly with the Rutgers course registration system, providing real-time Rate My Professor ratings alongside course information.
+The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to enhance the course registration and planning experience for Rutgers University students. This extension integrates seamlessly with the Rutgers course registration system, providing real-time Rate My Professor ratings alongside course information.
 
-<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/29e60c38-d1b2-42b2-a9db-3c1034cdaf7f" alt="Extension Logo" width="500px">
+<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/da345c94-5fba-4ab6-9c9c-86b13727e03f" alt="Extension Logo" width="400px">
 
 ### Key Features
 
 - **Professor Ratings**: Instantly access professor ratings and reviews while browsing course offerings.
 
-- **Informed Decisions**: Make educated decisions about course selections based on peer feedback.
-
 - **Efficient Planning**: Streamline the planning process by evaluating professors without leaving the registration portal.
 
 - **User-Friendly**: Intuitive and easy-to-use interface, accessible to all Rutgers students.
 
-- **Privacy and Security**: Prioritizes user privacy and follows strict security measures.
+- **Professor Matching Algorithm**: Matches professor departments with class and subject names for more accurate results
 
-## Installation
+
+
+## Installation 
+
+### Option 1: From Chrome Webstore
+
+- 
+
+### Option 2: From Source
 
 1. Launch Google Chrome on your computer.
 
@@ -39,22 +46,24 @@ The **Rutgers Professor Ratings Chrome Extension** is a powerful tool designed t
 
 8. Your extension will be loaded into Chrome. You should see its icon appear in the Chrome toolbar, and it will be listed on the Extensions page.
 
+
+
 ## Usage
 
-1. **Navigate**: Visit the Rutgers course registration portal.
+1. **Navigate**: Visit any Rutgers course portal
 
 2. **Browse Courses**: Explore course offerings and view class details.
 
-3. **Instant Ratings**: Professor ratings and reviews will be displayed next to their names as they are scraped.
+3. **Instant Ratings**: Professor ratings and reviews will be displayed next to their names
 
-## Future Goals
 
-- Cache professor ratings to speed up the loading of each rating field
 
-- Ensure the correct professor is scraped by using their department name
+## Future
 
-- Scrape additional metrics about each professor
+- Add support for Firefox and Microsoft Edge
 
-- scrape Rutgers SIRS data
 
-- OnHover popup for each professor rating displaying additional information
+
+## Contact
+
+- If you have any questions or concerns, feel free to contact us: techideas4me@gmail.com
