@@ -253,6 +253,8 @@ async function fetchProfStats(profName, matchText) {
             }, response => {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError);
+                } else if (response.error) {
+                    reject(response.error);
                 } else {
                     resolve(response);
                 }
@@ -262,7 +264,6 @@ async function fetchProfStats(profName, matchText) {
     catch (error) {
         return null;
     }
-
 }
 
 function getRMPLink (id) {
@@ -284,51 +285,3 @@ function findParentDiv (el, className) {
     }
     return null;
 }
-
-
-
-// ----------------OLD CODE----------------
-// async function runCode() {
-//
-//     const instructorColumnHeaders = document.getElementsByClassName("instructorColumnHeader");
-//     if (instructorColumnHeaders.length > 0) {
-//         for (let i = 0; i < instructorColumnHeaders.length; i++) {
-//             if (instructorColumnHeaders[i] != null) {
-//                 instructorColumnHeaders[i].style.marginRight = "120px";
-//             }
-//         }
-//     }
-//
-//     let instructors = document.getElementsByClassName("instructors");
-//     for (let i = 0; i < instructors.length; i++) {
-//         const textElement = document.createElement("span");
-//         textElement.id = "professorRatingElement";
-//         textElement.textContent = "Loading...";
-//
-//         // Insert the new text element after the current instructor element
-//         instructors[i].insertAdjacentElement("afterend", textElement);
-//
-//         const textContent = instructors[i].textContent;
-//         const professors = textContent.split('; ');
-//
-//         let rating = 'N/A'
-//         rating = retrieveRating();
-//
-//         textElement.textContent = rating;
-//
-// }
-//
-// if (window.location.href.includes('/soc')) {
-//     //check if professor ratings are propagated, otherwise propagate the values
-//     function checkForElement() {
-//         const element = document.getElementById("professorRatingElement");
-//         const instructorsElement = document.getElementsByClassName("instructors")
-//
-//         if (element || instructorsElement.length === 0) {
-//             //pass
-//         } else {
-//             runCode();
-//         }
-//     }
-//     const interval = setInterval(checkForElement, 5000); // Check every 5 second
-// }

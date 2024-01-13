@@ -2,13 +2,6 @@ importScripts("./constants.js");
 importScripts("./fuse.js");
 
 
-//TODO auto check boxes on webreg
-
-//TODO organize error handling:
-    // throw ... raises an exception in the current code block and causes it to exit, or to flow to next catch statement if raised in a try block.
-    //
-    //     console.error just prints out a red message to the browser developer tools javascript console and does not cause any changes of the execution flow.
-
 const profStatsCache = new Map();
 const profIDCache = new Map();
 const filteredProfCache = new Map();
@@ -71,6 +64,7 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
     });
     const fuse = new Fuse(profDepartments, FUSE_OPTIONS);
     const result = fuse.search(matchText);
+
 
     //Remove professors that are not from departments that tie for lowest (best) score from the result
     const lowestScore = result[0].score;
@@ -164,12 +158,15 @@ async function fetchProfessorStats(profID) {
 }
 
 function fetchAlias(departmentName, reverse) {
-    if (reverse) {
-        for (let [key, value] of Object.entries(departmentAliases)) {
-            if (value === departmentName) {
-                return key;
+    if (departmentAliases[departmentName]) {
+        if (reverse) {
+            for (let [key, value] of Object.entries(departmentAliases)) {
+                if (value === departmentName) {
+                    return key;
+                }
             }
         }
+        return departmentAliases[departmentName];
     }
-    return departmentAliases[departmentName];
+    return departmentName;
 }

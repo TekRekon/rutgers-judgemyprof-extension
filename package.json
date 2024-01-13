@@ -1,6 +1,3 @@
 {
-  "type": "module",
-  "dependencies": {
-    "@mtucourses/rate-my-professors": "^2.2.1"
-  }
+  "type": "module"
 }
