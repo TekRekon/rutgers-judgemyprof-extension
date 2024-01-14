@@ -1,6 +1,7 @@
 importScripts("./constants.js");
 importScripts("./fuse.js");
 
+//TODO use chrome storage to store cache
 
 const profStatsCache = new Map();
 const profIDCache = new Map();
@@ -18,6 +19,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }).then(response => {
             sendResponse({ data: response });
         }).catch(error => {
+            console.log(error);
             sendResponse({ error: error });
         });
         return true; // Indicate that we will send response asynchronously
@@ -87,17 +89,20 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
             maxProfID = key;
         }
     });
+    let dp = fetchAlias(profMap.get(maxProfID).department, true);
+    console.log(dp);
     profMap.get(maxProfID).department = fetchAlias(profMap.get(maxProfID).department, true);
+
     filteredProfCache.set(filteredCacheKey, profMap.get(maxProfID));
     return profMap.get(maxProfID);
 }
 
 
 async function fetchProfessorID(profName, schoolID, first = 1) {
-    const cacheKey = `${profName}_${schoolID}`;
     if (!profName) {
         return null;
     }
+    const cacheKey = `${profName}_${schoolID}`;
     if (profIDCache.has(cacheKey)) {
         return profIDCache.get(cacheKey);
     }
@@ -157,16 +162,18 @@ async function fetchProfessorStats(profID) {
     return statsNode;
 }
 
-function fetchAlias(departmentName, reverse) {
-    if (departmentAliases[departmentName]) {
-        if (reverse) {
-            for (let [key, value] of Object.entries(departmentAliases)) {
-                if (value === departmentName) {
-                    return key;
-                }
+function fetchAlias(departmentName, backToOriginal = false) {
+    if (backToOriginal) {
+        for (let key in departmentAliases) {
+            if (departmentAliases[key] === departmentName) {
+                return key;
             }
+        }
+    }
+    else {
+        if (!departmentAliases.hasOwnProperty(departmentName)) {
+            return departmentName;
         }
         return departmentAliases[departmentName];
     }
-    return departmentName;
 }

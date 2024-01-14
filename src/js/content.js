@@ -153,26 +153,21 @@ document.addEventListener('click', function(event) {
 });
 
 async function fetchProfStats(profName, matchText) {
-    try {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-                contentScriptQuery: 'fetchProfStats',
-                matchText: matchText,
-                profName: profName
-            }, response => {
-                if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError);
-                } else if (response.error) {
-                    reject(response.error);
-                } else {
-                    resolve(response);
-                }
-            });
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            contentScriptQuery: 'fetchProfStats',
+            matchText: matchText,
+            profName: profName
+        }, response => {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+            } else if (response.error) {
+                reject(response.error);
+            } else {
+                resolve(response);
+            }
         });
-    }
-    catch (error) {
-        return null;
-    }
+    });
 }
 
 function getRMPLink (id) {
