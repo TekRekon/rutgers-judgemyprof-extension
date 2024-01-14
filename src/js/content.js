@@ -88,7 +88,10 @@ function styleRatingElement(el) {
 
 function getRatingColor(rating) {
     let color = "";
-    if (rating < 2.0) {
+    if (rating === "X.X") {
+        color = "lightgray";
+    }
+    else if (rating < 2.0) {
         color = "lightcoral"
     }
     else if (rating < 3.0) {
@@ -217,15 +220,6 @@ function addNAEventListeners(el, popup) {
     });
 }
 
-function formatTakeAgainPercentText (percent) {
-    let again;
-    if (percent === -1) {
-        again = "Would Take Again: N/A";
-    } else {
-        again = "Would Take Again: " + String(Math.round((percent + Number.EPSILON) * 100) / 100) + "%";
-    }
-    return again;
-}
 
 function addInaccuracyWarning(card, bubble, message) {
     card.appendChild(bubble);
@@ -297,7 +291,15 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
 
     fetchProfStats(prof, searchSubText+ " " + course)
     .then(response => {
-        ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
+        if (!response.data) {
+            ratingElement.textContent = 'N/A';
+        }
+        else if (response.data.numRatings === 0) {
+            ratingElement.textContent = 'X.X';
+        }
+        else {
+            ratingElement.textContent = response.data.avgRating;
+        }
         rating.textContent = ratingElement.textContent.trim();
         if (prof === "") {
             ratingElement.textContent = "N/A";
@@ -305,7 +307,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
         if (ratingElement.textContent.trim() !== "N/A" && ratingElement.textContent.trim() !== "Error") {
 
             let ratingNum = parseFloat(ratingElement.textContent.trim());
-            let ratingColor = getRatingColor(ratingNum);
+            let ratingColor = ratingElement.textContent.trim()==="X.X" ? "lightgray" : getRatingColor(ratingNum);
             ratingElement.style.backgroundColor = ratingColor;
             rating.style.backgroundColor = ratingColor;
 
@@ -314,8 +316,8 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
             reviewsLink.textContent = response.data.numRatings + " review(s)";
             reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
             reviewsLink.target = "_blank";
-            difficulty.textContent = "Level Of Difficulty: " + response.data.avgDifficulty;
-            wta.textContent = formatTakeAgainPercentText(response.data.wouldTakeAgainPercent);
+            difficulty.textContent = "Level Of Difficulty: " + (response.data.numRatings>0 ? response.data.avgDifficulty : "N/A");
+            wta.textContent = "Would Take Again: " + (response.data.numRatings>0 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
 
             ratingElement.onclick = function () {
                 window.open(reviewsLink.href, '_blank');
