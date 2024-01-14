@@ -1,28 +1,20 @@
-//TODO OnHover popup for professor rating
-//TODO style rating text element/add padding to left of text element
 //TODO handle other rutgers websites:
     // var onCSP = window.location.href.includes("/csp/");
     // var onSOC = window.location.href.includes("/soc/");
+    // var onOLDSOC = window.location.href.includes("/oldsoc/");
     // var onWR = window.location.href.includes("/webreg/");
 
 function addRatingToInstructorElements(subjectElement) {
     // Find all instructor elements within a dropdown
     const instructorElements = subjectElement.querySelectorAll('.instructors');
-    let searchSubject = document.getElementById('subjectTitle2');
-    let searchSubjectText = searchSubject.innerText;
+    let searchSubjectText = document.getElementById('subjectTitle2').innerText;
 
     instructorElements.forEach(function(elem) {
         let courseName = findParentDiv(elem, "courseData").innerText;
         if (!elem.querySelector('.ratingText')) {
-
-            if (elem.textContent.trim().includes(";")) {
-
-                const profs = elem.textContent.trim().split(";");
-                for (let i = 0; i < profs.length; i++) {
-                    addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, 2);
-                }
-            } else {
-                addRatingBubble(elem, elem.textContent.trim(), searchSubjectText, courseName, 0, 1);
+            const profs = elem.textContent.trim().split(";");
+            for (let i = 0; i < profs.length; i++) {
+                addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, profs.length > 1 ? 2 : 1);
             }
         }
     });
@@ -54,18 +46,14 @@ async function fetchProfStats(profName, matchText) {
     });
 }
 
-function getRMPLink (id) {
-    return "https://www.ratemyprofessors.com/professor/" + id;
-}
-
 function findParentDiv (el, className) {
     className = className.toLowerCase();
     while (el && el.parentNode) {
         el = el.parentNode;
-        if (el.className && el.className.toLowerCase() == className) {
+        if (el.className && el.className.toLowerCase() === className) {
             while (el && el.previousSibling) {
                 el = el.previousSibling;
-                if (el.className && el.className.toLowerCase() == "metadata hidden") {
+                if (el.className && el.className.toLowerCase() === "metadata hidden") {
                     return el;
                 }
             }
@@ -99,7 +87,7 @@ function styleRatingElement(el) {
 }
 
 function getRatingColor(rating) {
-    var color = "";
+    let color = "";
     if (rating < 2.0) {
         color = "lightcoral"
     }
@@ -229,18 +217,17 @@ function addNAEventListeners(el, popup) {
     });
 }
 
-function getWouldTakeAgain (percent) {
-    var again = "";
-    if (percent == -1) {
+function formatTakeAgainPercentText (percent) {
+    let again;
+    if (percent === -1) {
         again = "Would Take Again: N/A";
     } else {
         again = "Would Take Again: " + String(Math.round((percent + Number.EPSILON) * 100) / 100) + "%";
     }
-
     return again;
 }
 
-function noFirstNameListed (card, bubble, message) {
+function addInaccuracyWarning(card, bubble, message) {
     card.appendChild(bubble);
     card.appendChild(message);
     bubble.textContent = "?";
@@ -262,8 +249,8 @@ function noRating (el, popup, professor) {
 
     styleSearchPopup(popup);
 
-    if (professor == "") { // check is professor name is empty
-        const link = "🗿";
+    if (professor === "") {
+        const link = "https://www.google.com/search?q=🗿";
         el.onclick = function () {
             window.open(link, '_blank');
         };
@@ -273,42 +260,19 @@ function noRating (el, popup, professor) {
             window.open(link, '_blank');
         };
     }
-
     addNAEventListeners(el, popup);
-}
-
-function inputProfData (ratingEl, rat, department, dep, firstName, lastName, prof, numRatings, avgDifficulty, diff, legacyId, rev, wouldTakeAgainPercent, takeAgain) {
-    let ratingNum = parseFloat(ratingEl.textContent.trim());
-    const ratingColor = getRatingColor(ratingNum);
-    ratingEl.style.backgroundColor = ratingColor;
-    rat.style.backgroundColor = ratingColor;
-
-    prof.textContent = firstName + " " + lastName;
-    dep.textContent = department;
-    const link = getRMPLink(legacyId);
-    rev.textContent = numRatings + " review(s)";
-    rev.href = link
-    rev.target = "_blank";
-    diff.textContent = "Level Of Difficulty: " + avgDifficulty;
-    var tap = wouldTakeAgainPercent;
-    takeAgain.textContent = getWouldTakeAgain(tap);
-
-    ratingEl.onclick = function () {
-        window.open(link, '_blank');
-    };
-
 }
 
 function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     el.style.marginRight = "13px";
     const ratingElement = document.createElement('div');
     styleRatingElement(ratingElement);
-    if (num == 1) {
+    if (num === 1) {
         ratingElement.style.marginLeft = "6px";
     } else {
         ratingElement.style.marginLeft = "8px";
     }
-    if (numProfs == 2) {
+    if (numProfs === 2) {
         ratingElement.style.fontSize = "14px";
     }
     if (el.textContent.trim().length > 25) {
@@ -335,28 +299,40 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     .then(response => {
         ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
         rating.textContent = ratingElement.textContent.trim();
-        if (prof == "") {
+        if (prof === "") {
             ratingElement.textContent = "N/A";
         }
-        if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
-            
-            inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta)
+        if (ratingElement.textContent.trim() !== "N/A" && ratingElement.textContent.trim() !== "Error") {
 
+            let ratingNum = parseFloat(ratingElement.textContent.trim());
+            let ratingColor = getRatingColor(ratingNum);
+            ratingElement.style.backgroundColor = ratingColor;
+            rating.style.backgroundColor = ratingColor;
+
+            profName.textContent = response.data.firstName + " " + response.data.lastName;
+            dept.textContent = response.data.department;
+            reviewsLink.textContent = response.data.numRatings + " review(s)";
+            reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
+            reviewsLink.target = "_blank";
+            difficulty.textContent = "Level Of Difficulty: " + response.data.avgDifficulty;
+            wta.textContent = formatTakeAgainPercentText(response.data.wouldTakeAgainPercent);
+
+            ratingElement.onclick = function () {
+                window.open(reviewsLink.href, '_blank');
+            };
 
             addEventListeners(ratingElement, ratingCard);
-
             if (!prof.includes(",")) { // check if professor Last Name is unavailable
-                noFirstNameListed(ratingCard, warningBubble, warning);
+                addInaccuracyWarning(ratingCard, warningBubble, warning);
             }
         }
-        if (ratingElement.textContent == "N/A") { // check if rating is N/A
-            console.log(prof);
+        if (ratingElement.textContent === "N/A") {
             noRating(ratingElement, searchPopup, prof);
         }
     })
     .catch(error => {
         console.error("Error occurred while fetching professor stats: ", error);
-        ratingElement.textContent = 'N/A';
+        ratingElement.textContent = 'Error';
     });
     el.appendChild(ratingElement);
     el.appendChild(ratingCard);
