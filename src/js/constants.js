@@ -33,6 +33,7 @@ query ($id: ID!) {
 
 self.departmentAliases = {
     "Genetics": "BioGenetics",
+    "Mathematics": "calculusMathematics",
 }
 
 self.CAMPUS_CODES = {

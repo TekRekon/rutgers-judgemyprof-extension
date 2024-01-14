@@ -16,130 +16,14 @@ function addRatingToInstructorElements(subjectElement) {
         if (!elem.querySelector('.ratingText')) {
 
             if (elem.textContent.trim().includes(";")) {
-                elem.style.marginRight = "13px";
-                const ratingElement = document.createElement('div');
-                styleRatingElement(ratingElement);
-
-                const profName = document.createElement("div");
-                const dept = document.createElement("div");
-                const rating = document.createElement("div");
-                const reviews = document.createElement("div");
-                const reviewsLink = document.createElement("a");
-                const difficulty = document.createElement("div");
-                const wta = document.createElement("div");
-                const warningBubble = document.createElement("div");
-                const warning = document.createElement("div");
-                const searchPopup = document.createElement("div");
-                const box = document.createElement("div");
-                const details = document.createElement("div");
-                const ratingCard = document.createElement('div');
-
-                stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details);
 
                 const profs = elem.textContent.trim().split(";");
                 for (let i = 0; i < profs.length; i++) {
-                    fetchProfStats(profs[i], searchSubjectText+ " " + courseName)
-                    .then(response => {
-                        var prof = profs[i];
-                        ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
-                        rating.textContent = ratingElement.textContent.trim();
-                        if (prof == "") {
-                            ratingElement.textContent = "N/A";
-                        }
-                        if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
-                            
-                            inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta)
-
-
-                            addEventListeners(ratingElement, ratingCard);
-
-                            if (!prof.includes(",")) { // check if professor Last Name is unavailable
-                                noFirstNameListed(ratingCard, warningBubble, warning);
-                            }
-                        }
-                        if (ratingElement.textContent == "N/A") { // check if rating is N/A
-                            noRating(ratingElement, searchPopup, prof);
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error occurred while fetching professor stats: ", error);
-                        ratingElement.textContent = 'N/A';
-                    });
-                    elem.appendChild(ratingElement);
-                    elem.appendChild(ratingCard);
-                    ratingCard.appendChild(profName);
-                    ratingCard.appendChild(dept);
-                    ratingCard.appendChild(box);
-                    box.appendChild(rating);
-                    box.appendChild(reviews);
-                    reviews.appendChild(reviewsLink);
-                    ratingCard.appendChild(details);
-                    details.appendChild(difficulty);
-                    details.appendChild(wta);
+                    addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, 2);
                 }
+            } else {
+                addRatingBubble(elem, elem.textContent.trim(), searchSubjectText, courseName, 0, 1);
             }
-
-            elem.style.marginRight = "13px";
-            const ratingElement = document.createElement('div');
-            styleRatingElement(ratingElement);
-
-            // initialize elements
-            const profName = document.createElement("div");
-            const dept = document.createElement("div");
-            const rating = document.createElement("div");
-            const reviews = document.createElement("div");
-            const reviewsLink = document.createElement("a");
-            const difficulty = document.createElement("div");
-            const wta = document.createElement("div");
-            const warningBubble = document.createElement("div");
-            const warning = document.createElement("div");
-            const searchPopup = document.createElement("div");
-            const box = document.createElement("div");
-            const details = document.createElement("div");
-            const ratingCard = document.createElement('div');
-
-            stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details); // style popup elements
-
-            // Fetch the professor's rating and update the text content
-            fetchProfStats(elem.textContent.trim(), searchSubjectText+ " " + courseName)
-                .then(response => {
-                    var prof = elem.textContent.trim().substring(0, elem.textContent.trim().length - 10);
-                    ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
-                    rating.textContent = ratingElement.textContent.trim();
-                    if (prof == "") {
-                        ratingElement.textContent = "N/A";
-                    }
-                    if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
-                        
-                        inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta);
-
-
-                        addEventListeners(ratingElement, ratingCard);
-
-                        if (!prof.includes(",")) { // check if professor Last Name is unavailable
-                            noFirstNameListed(ratingCard, warningBubble, warning);
-                        }
-                    }
-                    if (ratingElement.textContent == "N/A") { // check if rating is N/A
-                        noRating(ratingElement, searchPopup, prof);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error occurred while fetching professor stats: ", error);
-                    ratingElement.textContent = 'N/A';
-                });
-            // Append elements
-            elem.appendChild(ratingElement);
-            elem.appendChild(ratingCard);
-            ratingCard.appendChild(profName);
-            ratingCard.appendChild(dept);
-            ratingCard.appendChild(box);
-            box.appendChild(rating);
-            box.appendChild(reviews);
-            reviews.appendChild(reviewsLink);
-            ratingCard.appendChild(details);
-            details.appendChild(difficulty);
-            details.appendChild(wta);
         }
     });
 }
@@ -198,14 +82,14 @@ function findParentDiv (el, className) {
 function styleRatingElement(el) {
     el.className = 'ratingText';
     el.id = 'rating';
-    el.textContent = 'Loading...';
+    el.textContent = '';
     el.style.fontSize = '17px';
     el.style.display = 'inline-block';
     el.style.padding = '8px';
     el.style.position = 'relative';
     el.style.backgroundColor = 'lightgray';
     el.style.borderRadius = '10px';
-    el.style.marginLeft = "30px";
+    el.style.marginLeft = "15px";
     el.style.marginRight = "1px";
     el.style.fontWeight = "bold";
     el.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
@@ -418,4 +302,76 @@ function inputProfData (ratingEl, rat, department, dep, firstName, lastName, pro
         window.open(link, '_blank');
     };
 
+}
+
+function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
+    el.style.marginRight = "13px";
+    const ratingElement = document.createElement('div');
+    styleRatingElement(ratingElement);
+    if (num == 1) {
+        ratingElement.style.marginLeft = "6px";
+    } else {
+        ratingElement.style.marginLeft = "8px";
+    }
+    if (numProfs == 2) {
+        ratingElement.style.fontSize = "14px";
+    }
+    if (el.textContent.trim().length > 25) {
+        ratingElement.style.fontSize = "12px";
+    }
+
+    const profName = document.createElement("div");
+    const dept = document.createElement("div");
+    const rating = document.createElement("div");
+    const reviews = document.createElement("div");
+    const reviewsLink = document.createElement("a");
+    const difficulty = document.createElement("div");
+    const wta = document.createElement("div");
+    const warningBubble = document.createElement("div");
+    const warning = document.createElement("div");
+    const searchPopup = document.createElement("div");
+    const box = document.createElement("div");
+    const details = document.createElement("div");
+    const ratingCard = document.createElement('div');
+
+    stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details);
+
+    fetchProfStats(prof, searchSubText+ " " + course)
+    .then(response => {
+        ratingElement.textContent = response.data ? response.data.avgRating : 'N/A';
+        rating.textContent = ratingElement.textContent.trim();
+        if (prof == "") {
+            ratingElement.textContent = "N/A";
+        }
+        if (ratingElement.textContent.trim() != "N/A" && ratingElement.textContent.trim() != "Error") {
+            
+            inputProfData (ratingElement, rating, response.data.department, dept, response.data.firstName, response.data.lastName, profName, response.data.numRatings, response.data.avgDifficulty, difficulty, response.data.legacyId, reviewsLink, response.data.wouldTakeAgainPercent, wta)
+
+
+            addEventListeners(ratingElement, ratingCard);
+
+            if (!prof.includes(",")) { // check if professor Last Name is unavailable
+                noFirstNameListed(ratingCard, warningBubble, warning);
+            }
+        }
+        if (ratingElement.textContent == "N/A") { // check if rating is N/A
+            console.log(prof);
+            noRating(ratingElement, searchPopup, prof);
+        }
+    })
+    .catch(error => {
+        console.error("Error occurred while fetching professor stats: ", error);
+        ratingElement.textContent = 'N/A';
+    });
+    el.appendChild(ratingElement);
+    el.appendChild(ratingCard);
+    ratingCard.appendChild(profName);
+    ratingCard.appendChild(dept);
+    ratingCard.appendChild(box);
+    box.appendChild(rating);
+    box.appendChild(reviews);
+    reviews.appendChild(reviewsLink);
+    ratingCard.appendChild(details);
+    details.appendChild(difficulty);
+    details.appendChild(wta);
 }
