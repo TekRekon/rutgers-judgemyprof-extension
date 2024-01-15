@@ -9,22 +9,18 @@ const filteredProfCache = new Map();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.contentScriptQuery === 'fetchProfStats') {
-        new Promise(async (resolve, reject) => {
-            try {
-                const profStats = await fetchMostLikelyProfessorID(request.profName, request.matchText);
-                resolve(profStats);
-            } catch (error) {
-                reject(error.message);
-            }
-        }).then(response => {
-            sendResponse({ data: response });
-        }).catch(error => {
-            console.log(error);
-            sendResponse({ error: error });
-        });
+        fetchMostLikelyProfessorID(request.profName, request.matchText)
+            .then(profStats => {
+                sendResponse({ data: profStats });
+            })
+            .catch(error => {
+                console.error(error);
+                sendResponse({ error: error.message });
+            });
         return true; // Indicate that we will send response asynchronously
     }
 });
+
 
 //attempt to filter most relevant professor
 async function fetchMostLikelyProfessorID(profName, matchText = "") {
@@ -33,7 +29,6 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
     }
     let filteredCacheKey = `${profName}_${matchText}`;
     if (filteredProfCache.has(filteredCacheKey)) {
-        console.log("filtered cache hit");
         return filteredProfCache.get(filteredCacheKey);
     }
     //1) search for first 9 most relevant professors from top 3 schools
@@ -106,7 +101,6 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
     }
     const cacheKey = `${profName}_${schoolID}`;
     if (profIDCache.has(cacheKey)) {
-        console.log("cache hit");
         return profIDCache.get(cacheKey);
     }
     const response = await fetch(API_URL, {
