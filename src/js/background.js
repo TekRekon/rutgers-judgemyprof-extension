@@ -33,14 +33,15 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
     }
     let filteredCacheKey = `${profName}_${matchText}`;
     if (filteredProfCache.has(filteredCacheKey)) {
+        console.log("filtered cache hit");
         return filteredProfCache.get(filteredCacheKey);
     }
     //1) search for first 9 most relevant professors from top 3 schools
     let profMap = new Map();
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
         let school = SCHOOLS[i];
-        let profIDs = await fetchProfessorID(profName, school[0], 3);
+        let profIDs = await fetchProfessorID(profName, school[0], 4);
         let limit = profIDs ? profIDs.length : 0;
         for (let j = 0; j < limit; j++) {
             let profID = profIDs[j].node.id;
@@ -67,30 +68,31 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
     const fuse = new Fuse(profDepartments, FUSE_OPTIONS);
     const result = fuse.search(matchText);
 
-
     //Remove professors that are not from departments that tie for lowest (best) score from the result
     const lowestScore = result[0].score;
-    for (let i = 1; i < result.length; i++) {
-        if (result[i].score !== lowestScore) {
-            profMap.forEach((value, key) => {
-                if (value.department === result[i].item) {
-                    profMap.delete(key);
-                }
-            });
+    const departmentsWithLowestScore = new Set();
+
+    result.forEach(item => {
+        if (item.score === lowestScore) {
+            departmentsWithLowestScore.add(item.item);
         }
-    }
+    });
+
+    profMap.forEach((value, key) => {
+        if (!departmentsWithLowestScore.has(value.department)) {
+            profMap.delete(key);
+        }
+    });
 
     //3) Select professor with  most ratings
-    let maxRatings = -1;
     let maxProfID = null;
-    profMap.forEach((value, key) => {
+    let maxRatings = -1;
+    for (const [key, value] of profMap) {
         if (value.numRatings > maxRatings) {
             maxRatings = value.numRatings;
             maxProfID = key;
         }
-    });
-    let dp = fetchAlias(profMap.get(maxProfID).department, true);
-    console.log(dp);
+    }
     profMap.get(maxProfID).department = fetchAlias(profMap.get(maxProfID).department, true);
 
     filteredProfCache.set(filteredCacheKey, profMap.get(maxProfID));
@@ -104,6 +106,7 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
     }
     const cacheKey = `${profName}_${schoolID}`;
     if (profIDCache.has(cacheKey)) {
+        console.log("cache hit");
         return profIDCache.get(cacheKey);
     }
     const response = await fetch(API_URL, {
@@ -114,8 +117,9 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
         body: JSON.stringify({
             query: ProfessorIDQuery,
             variables: {
-                first: first,    //Number of relevant professors to fetch
-                query: { text: profName, schoolID: schoolID },
+                text: profName,    // Search text for the teacher
+                schoolID: schoolID,
+                first: first      //Number of relevant professors to fetch
             },
         }),
     });
@@ -169,6 +173,7 @@ function fetchAlias(departmentName, backToOriginal = false) {
                 return key;
             }
         }
+        return departmentName;
     }
     else {
         if (!departmentAliases.hasOwnProperty(departmentName)) {

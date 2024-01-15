@@ -332,7 +332,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
             reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
             reviewsLink.target = "_blank";
             difficulty.textContent = "Level Of Difficulty: " + (response.data.numRatings>0 ? response.data.avgDifficulty : "N/A");
-            wta.textContent = "Would Take Again: " + (response.data.numRatings>0 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
+            wta.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent!==-1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
 
             ratingElement.onclick = function () {
                 window.open(reviewsLink.href, '_blank');

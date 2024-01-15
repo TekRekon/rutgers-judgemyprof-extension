@@ -2,17 +2,19 @@ self.AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
 self.API_URL = "https://www.ratemyprofessors.com/graphql";
 
 self.ProfessorIDQuery = `
-query ($query: TeacherSearchQuery!, $first: Int!) {
-    newSearch {
-        teachers(query: $query, first: $first) {
-            edges {
-                node {
-                    id
-                }
-            }
+query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
+{
+  newSearch {
+    teachers(query: {text: $text, schoolID: $schoolID}, first: $first) {
+      edges {
+        node {
+          id
         }
+      }
     }
-}`;
+  }
+}
+`;
 
 self.ProfessorStatsQuery = `
 query ($id: ID!) {
@@ -29,13 +31,15 @@ query ($id: ID!) {
             wouldTakeAgainPercent
         }
     }
-}`;
+}
+`;
 
 //tweak fuse search to increase accuracy for specific departments
 self.departmentAliases = {
-    "Genetics": "BioGenetics",
-    "Mathematics": "calculusMathematics",
-    "Geography": "EnvGeography"
+    "Genetics": "Bio Science Genetics",
+    "Mathematics": "Calc Mathematics",
+    "Geography": "Env Science Geography",
+    "Geology": "Graphy Sci Earth Geology",
 }
 
 self.CAMPUS_CODES = {
