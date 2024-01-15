@@ -90,18 +90,30 @@ function getRatingColor(rating) {
     let color = "";
     if (rating === "X.X") {
         color = "lightgray";
+    } 
+    else if (rating < 1.0) {
+        color = "lightcoral";
     }
     else if (rating < 2.0) {
-        color = "lightcoral"
+        color = "#F8917D"
     }
-    else if (rating < 3.0) {
+    else if (rating < 2.5) {
         color = "lightsalmon";
     }
-    else if (rating < 4.0) {
+    else if (rating < 3.0) {
+        color = "#F7C684";
+    }
+    else if (rating < 3.5) {
         color = "khaki";
     }
+    else if (rating < 4.0) {
+        color = "#baee90";
+    }
+    else if (rating < 4.5) {
+        color = "#98FB98";
+    }
     else if (rating <= 5.0) {
-        color = "lightgreen";
+        color = "#6ad46a";
     }
     return color;
 }
@@ -271,6 +283,9 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     }
     if (el.textContent.trim().length > 25) {
         ratingElement.style.fontSize = "12px";
+    }
+    if (el.textContent.trim().length >= 29) {
+        ratingElement.style.fontSize = "10px";
     }
 
     const profName = document.createElement("div");

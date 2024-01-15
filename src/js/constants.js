@@ -34,7 +34,8 @@ query ($id: ID!) {
 //tweak fuse search to increase accuracy for specific departments
 self.departmentAliases = {
     "Genetics": "BioGenetics",
-    "Mathematics": "calculusMathematics"
+    "Mathematics": "calculusMathematics",
+    "Geography": "EnvGeography"
 }
 
 self.CAMPUS_CODES = {
