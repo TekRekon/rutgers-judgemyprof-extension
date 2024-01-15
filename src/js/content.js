@@ -206,9 +206,10 @@ function styleWarning(bubble, message) {
     message.style.position = "absolute";
     message.style.backgroundColor = "lightgray";
     message.style.fontSize = "12px";
+    message.style.fontWeight = "bold";
     message.style.padding = "5px";
     message.style.borderRadius = "5px";
-    message.style.top = "-30px";
+    message.style.top = "-40px";
     message.style.right = "7px";
     message.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
 }
@@ -253,6 +254,28 @@ function addInaccuracyWarning(card, bubble, message) {
     bubble.addEventListener("mouseleave", () => {
         message.style.display = "none";
     });
+}
+
+function addRatingWarning(el, bubble, length) {
+    el.appendChild(bubble);
+    bubble.textContent = "?";
+
+    el.style.position = "relative";
+    bubble.style.position = "absolute";
+    bubble.style.top = "-11px";
+    bubble.style.right = "90px";
+    bubble.style.backgroundColor = "lightgray";
+    bubble.style.borderRadius = "50%";
+    bubble.style.width = "20px";
+    bubble.style.height = "20px";
+    bubble.style.display = "flex";
+    bubble.style.fontSize = "10px";
+    bubble.style.justifyContent = "center";
+    bubble.style.alignItems = "center";
+    bubble.style.zIndex = "2";
+    if (length == 1) {
+        bubble.style.right = "100px";
+    }
 }
 
 function noRating (el, popup, professor) {
@@ -303,6 +326,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     const wta = document.createElement("div");
     const warningBubble = document.createElement("div");
     const warning = document.createElement("div");
+    const ratingWarning = document.createElement("div");
     const searchPopup = document.createElement("div");
     const box = document.createElement("div");
     const details = document.createElement("div");
@@ -347,6 +371,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
             addEventListeners(ratingElement, ratingCard);
             if (!prof.includes(",")) { // check if professor Last Name is unavailable
                 addInaccuracyWarning(ratingCard, warningBubble, warning);
+                addRatingWarning(el, ratingWarning, ratingElement.textContent.length);
             }
         }
         if (ratingElement.textContent === "N/A") {

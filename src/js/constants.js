@@ -38,7 +38,7 @@ query ($id: ID!) {
 self.departmentAliases = {
     "Genetics": "Bio Science Genetics",
     "Mathematics": "Calc Mathematics",
-    "Geography": "Env Science Geography",
+    "Geography": "Env Science Remote Geography",
     "Geology": "Graphy Sci Earth Geology",
 }
 
