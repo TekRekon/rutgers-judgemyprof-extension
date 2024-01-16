@@ -109,7 +109,6 @@ function addRatingToInstructorElements(subjectElement) {
             //add rating elem to each valid instructor element
             const profs = elem.textContent.trim().split(";");
             for (let i = 0; i < profs.length; i++) {
-                console.log(profs[i]);
                 addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, profs.length > 1 ? 2 : 1);
             }
         }
@@ -157,7 +156,7 @@ function findParentDiv (el, className) {
     return null;
 }
 
-function styleRatingElement(el) {
+function styleRatingElement(el, prof) {
     el.className = 'ratingText';
     el.id = 'rating';
     el.textContent = '';
@@ -172,6 +171,14 @@ function styleRatingElement(el) {
     el.style.fontWeight = "bold";
     el.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
     el.style.cursor = "pointer";
+
+    if (siteType == "CSP") {
+        el.style.marginTop = "11px";
+        prof.style.paddingRight = "30px";
+        if (prof.textContent.length < 9) {
+            prof.style.paddingRight = "45px";
+        }
+    }
 
     el.addEventListener("mousedown", () => {
         el.style.transform = "translateY(2px)";
@@ -345,14 +352,14 @@ function addInaccuracyWarning(card, bubble, message) {
     });
 }
 
-function addRatingWarning(el, bubble, length) {
+function addRatingWarning(el, bubble) {
     el.appendChild(bubble);
     bubble.textContent = "?";
 
     el.style.position = "relative";
     bubble.style.position = "absolute";
     bubble.style.top = "-11px";
-    bubble.style.right = "90px";
+    bubble.style.right = "-10px";
     bubble.style.backgroundColor = "lightgray";
     bubble.style.borderRadius = "50%";
     bubble.style.width = "20px";
@@ -361,10 +368,6 @@ function addRatingWarning(el, bubble, length) {
     bubble.style.fontSize = "10px";
     bubble.style.justifyContent = "center";
     bubble.style.alignItems = "center";
-    bubble.style.zIndex = "2";
-    if (length === 1) {
-        bubble.style.right = "100px";
-    }
 }
 
 function noRating (el, popup, professor) {
@@ -390,7 +393,7 @@ function noRating (el, popup, professor) {
 function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     el.style.marginRight = "13px";
     const ratingElement = document.createElement('div');
-    styleRatingElement(ratingElement);
+    styleRatingElement(ratingElement, el);
     if (num === 1) {
         ratingElement.style.marginLeft = "6px";
     } else {
@@ -460,7 +463,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
             addEventListeners(ratingElement, ratingCard);
             if (!prof.includes(",")) { // check if professor Last Name is unavailable
                 addInaccuracyWarning(ratingCard, warningBubble, warning);
-                addRatingWarning(el, ratingWarning, ratingElement.textContent.length);
+                addRatingWarning(ratingElement, ratingWarning);
             }
         }
         if (ratingElement.textContent === "N/A") {
