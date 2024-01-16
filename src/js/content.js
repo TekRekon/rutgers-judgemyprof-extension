@@ -1,32 +1,121 @@
-//TODO handle other rutgers websites:
-    // var onCSP = window.location.href.includes("/csp/");
-    // var onSOC = window.location.href.includes("/soc/");
-    // var onOLDSOC = window.location.href.includes("/oldsoc/");
-    // var onWR = window.location.href.includes("/webreg/");
+let siteType = "";
+const url = window.location.href;
+if (url.includes("/csp/")) {
+    siteType = "CSP";
+    //TODO make select sections tab load automatically instead of having to click
+    document.addEventListener('click', function(event) {
+        let dropdownElem = event.target.closest('.dijitTitlePane');
+        if (dropdownElem) {
+            addRatingToInstructorElements(dropdownElem);
+        }
+    });
+}
+else if (url.includes("/soc/")) {
+    siteType = "SOC";
+    document.addEventListener('click', function(event) {
+        let dropdownElem = event.target.closest('.subject');
+        if (dropdownElem) {
+            addRatingToInstructorElements(dropdownElem);
+        }
+    });
+}
+
+else if (url.includes("/oldsoc/")) {
+    siteType = "OLDSOC";
+    document.addEventListener('click', function(event) {
+        let dropdownElem = event.target.closest('.subject');
+        if (dropdownElem) {
+            addRatingToInstructorElements(dropdownElem);
+        }
+    });
+}
+else if (url.includes("/webreg/")) {
+    siteType = "WR";
+    document.addEventListener('click', function(event) {
+        let dropdownElem = event.target.closest('.subject');
+        if (dropdownElem) {
+            addRatingToInstructorElements(dropdownElem);
+        }
+    });
+}
+
 
 function addRatingToInstructorElements(subjectElement) {
-    // Find all instructor elements within a dropdown
-    const instructorElements = subjectElement.querySelectorAll('.instructors');
-    let searchSubjectText = document.getElementById('subjectTitle2').innerText;
+    //get subject and instructor elements
+    let instructorElements = [];
+    let searchSubjectText;
+    if (siteType==="SOC") {
+        instructorElements = subjectElement.querySelectorAll('.instructors');
+        searchSubjectText = document.getElementById('subjectTitle2').innerText;
+    }
+    else if (siteType==="OLDSOC") {
+        instructorElements = subjectElement.querySelectorAll('.instructors');
+        searchSubjectText = document.getElementById('subjectTitle').innerText;
+
+    }
+    else if (siteType==="CSP") {
+
+        if (window.location.href.includes("SelectCourseTab")) {
+            let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
+            searchSubjectText = subjectDropdown.options[subjectDropdown.selectedIndex].text;
+            let instructorElems = document.querySelectorAll('td[title="Instructor"]');
+            instructorElements = Array.from(instructorElems).filter(function(element) {
+                return subjectElement.contains(element);
+            });
+        }
+        else if (window.location.href.includes("SelectSectionTab")) {
+            searchSubjectText = "";
+            instructorElements = document.querySelectorAll('td[title="Instructor"]');
+        }
+
+    }
+    else if (siteType==="WR") {
+        instructorElements = subjectElement.querySelectorAll('.instructors');
+        searchSubjectText = document.getElementById('subjectTitle2').innerText;
+    }
+    else {
+        console.error("Error: siteType not found")
+        return;
+    }
 
     instructorElements.forEach(function(elem) {
-        let courseName = findParentDiv(elem, "courseData").innerText;
-        if (!elem.querySelector('.ratingText')) {
+        if (elem && !elem.querySelector('.ratingText')) {
+            //get course name
+            let courseName = "";
+            if (siteType === "SOC" || siteType === "OLDSOC" || siteType === "WR") {
+                courseName = findParentDiv(elem, "courseData").innerText;
+            } else if (siteType === "CSP") {
+                if (window.location.href.includes("SelectCourseTab")) {
+                    if (subjectElement.querySelector('.title')) {
+                        courseName = subjectElement.querySelector('.title').textContent.trim();
+                    }
+                    else {
+                        return;
+                    }
+                } else if (window.location.href.includes("SelectSectionTab")) {
+                    let courseElement = elem.closest('.dijitTitlePane');
+                    if (courseElement) {
+                        let titleElement = courseElement.querySelector('.title');
+                        if (titleElement) {
+                            courseName = titleElement.textContent.trim();
+                        }
+                    }
+                    else {
+                        return;
+                    }
+                }
+            }
+
+            //add rating elem to each valid instructor element
             const profs = elem.textContent.trim().split(";");
             for (let i = 0; i < profs.length; i++) {
+                console.log(profs[i]);
                 addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, profs.length > 1 ? 2 : 1);
             }
         }
     });
 }
 
-document.addEventListener('click', function(event) {
-    // Check if a dropdown was clicked
-    let subjectElement = event.target.closest('.subject');
-    if (subjectElement) {
-        addRatingToInstructorElements(subjectElement);
-    }
-});
 
 async function fetchProfStats(profName, matchText) {
     try {
@@ -273,7 +362,7 @@ function addRatingWarning(el, bubble, length) {
     bubble.style.justifyContent = "center";
     bubble.style.alignItems = "center";
     bubble.style.zIndex = "2";
-    if (length == 1) {
+    if (length === 1) {
         bubble.style.right = "100px";
     }
 }
