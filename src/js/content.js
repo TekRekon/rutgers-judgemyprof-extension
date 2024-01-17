@@ -172,13 +172,17 @@ function styleRatingElement(el, prof) {
     el.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
     el.style.cursor = "pointer";
 
-    if (siteType == "CSP") {
-        el.style.marginTop = "11px";
-        prof.style.paddingRight = "30px";
-        if (prof.textContent.length < 9) {
-            prof.style.paddingRight = "45px";
-        }
-    }
+    // if (siteType == "CSP") {
+    //     el.style.marginTop = "11px";
+    //     el.style.marginLeft = "1px";
+    //     prof.style.paddingRight = "30px";
+    //     if (prof.textContent.length < 11) {
+    //         prof.style.paddingRight = "60px";
+    //     }
+    //     if (prof.textContent.length < 7) {
+    //         prof.style.paddingRight = "80px";
+    //     }
+    // }
 
     el.addEventListener("mousedown", () => {
         el.style.transform = "translateY(2px)";
@@ -220,7 +224,7 @@ function getRatingColor(rating) {
     return color;
 }
 
-function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox, det) {
+function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox, det, el, prof) {
     card.style.display = "none";
     card.style.backgroundColor = "white";
     card.style.padding = "10px";
@@ -231,6 +235,18 @@ function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox
     card.style.width = '200px';
     card.style.boxSizing = "border-box";
     card.style.position = 'absolute';
+    if (siteType = "CSP") {
+        card.style.left = "950px";
+        el.style.marginTop = "11px";
+        el.style.marginLeft = "1px";
+        prof.style.paddingRight = "30px";
+        if (prof.textContent.length < 11) {
+            prof.style.paddingRight = "60px";
+        }
+        if (prof.textContent.length < 7) {
+            prof.style.paddingRight = "80px";
+        }
+    }
 
     name.style.fontSize = "18px";
     name.style.fontWeight = "bold";
@@ -408,6 +424,9 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     if (el.textContent.trim().length >= 29) {
         ratingElement.style.fontSize = "10px";
     }
+    if (siteType = "CSP") {
+        ratingElement.style.marginLeft = "1px";
+    }
 
     const profName = document.createElement("div");
     const dept = document.createElement("div");
@@ -424,7 +443,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     const details = document.createElement("div");
     const ratingCard = document.createElement('div');
 
-    stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details);
+    stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details, ratingElement, el);
 
     fetchProfStats(prof, searchSubText+ " " + course)
     .then(response => {
