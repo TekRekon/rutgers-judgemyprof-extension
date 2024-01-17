@@ -1,6 +1,21 @@
-
 if (window.location.href.includes("/csp/")) {
-    //TODO make select sections tab load automatically instead of having to click
+    let observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (!mutation.addedNodes) return;
+            for (let i = 0; i < mutation.addedNodes.length; i++) {
+                if (mutation.addedNodes[i].id === "SectionSelectID") {
+                    addRatingToInstructorElements(null);
+                    observer.disconnect();
+                }
+            }
+        });
+    });
+
+    let config = { childList: true, subtree: true };
+    let targetNode = document.body;
+    observer.observe(targetNode, config);
+
+
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.dijitTitlePane');
         if (dropdownElem) {
