@@ -167,18 +167,6 @@ function styleRatingElement(el, prof) {
     el.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
     el.style.cursor = "pointer";
 
-    // if (siteType == "CSP") {
-    //     el.style.marginTop = "11px";
-    //     el.style.marginLeft = "1px";
-    //     prof.style.paddingRight = "30px";
-    //     if (prof.textContent.length < 11) {
-    //         prof.style.paddingRight = "60px";
-    //     }
-    //     if (prof.textContent.length < 7) {
-    //         prof.style.paddingRight = "80px";
-    //     }
-    // }
-
     el.addEventListener("mousedown", () => {
         el.style.transform = "translateY(2px)";
     });
@@ -234,8 +222,8 @@ function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox
         card.style.left = "950px";
         el.style.marginTop = "11px";
         el.style.marginLeft = "1px";
-        prof.style.paddingRight = "30px";
-        if (prof.textContent.length < 11) {
+        prof.style.paddingRight = "25px";
+        if (prof.textContent.length < 12) {
             prof.style.paddingRight = "60px";
         }
         if (prof.textContent.length < 7) {
