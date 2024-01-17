@@ -1,7 +1,5 @@
-let siteType = "";
-const url = window.location.href;
-if (url.includes("/csp/")) {
-    siteType = "CSP";
+
+if (window.location.href.includes("/csp/")) {
     //TODO make select sections tab load automatically instead of having to click
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.dijitTitlePane');
@@ -10,8 +8,7 @@ if (url.includes("/csp/")) {
         }
     });
 }
-else if (url.includes("/soc/")) {
-    siteType = "SOC";
+else if (window.location.href.includes("/soc/")) {
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
@@ -20,8 +17,7 @@ else if (url.includes("/soc/")) {
     });
 }
 
-else if (url.includes("/oldsoc/")) {
-    siteType = "OLDSOC";
+else if (window.location.href.includes("/oldsoc/")) {
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
@@ -29,8 +25,7 @@ else if (url.includes("/oldsoc/")) {
         }
     });
 }
-else if (url.includes("/webreg/")) {
-    siteType = "WR";
+else if (window.location.href.includes("/webreg/")) {
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
@@ -44,16 +39,16 @@ function addRatingToInstructorElements(subjectElement) {
     //get subject and instructor elements
     let instructorElements = [];
     let searchSubjectText;
-    if (siteType==="SOC") {
+    if (window.location.href.includes("/soc/")) {
         instructorElements = subjectElement.querySelectorAll('.instructors');
         searchSubjectText = document.getElementById('subjectTitle2').innerText;
     }
-    else if (siteType==="OLDSOC") {
+    else if (window.location.href.includes("/oldsoc/")) {
         instructorElements = subjectElement.querySelectorAll('.instructors');
         searchSubjectText = document.getElementById('subjectTitle').innerText;
 
     }
-    else if (siteType==="CSP") {
+    else if (window.location.href.includes("/csp/")) {
 
         if (window.location.href.includes("SelectCourseTab")) {
             let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
@@ -69,12 +64,12 @@ function addRatingToInstructorElements(subjectElement) {
         }
 
     }
-    else if (siteType==="WR") {
+    else if (window.location.href.includes("/webreg/")) {
         instructorElements = subjectElement.querySelectorAll('.instructors');
         searchSubjectText = document.getElementById('subjectTitle2').innerText;
     }
     else {
-        console.error("Error: siteType not found")
+        console.error("Error: site type not found")
         return;
     }
 
@@ -82,9 +77,9 @@ function addRatingToInstructorElements(subjectElement) {
         if (elem && !elem.querySelector('.ratingText')) {
             //get course name
             let courseName = "";
-            if (siteType === "SOC" || siteType === "OLDSOC" || siteType === "WR") {
+            if (window.location.href.includes("/soc/") || window.location.href.includes("/oldsoc/") || window.location.href.includes("/webreg/")) {
                 courseName = findParentDiv(elem, "courseData").innerText;
-            } else if (siteType === "CSP") {
+            } else if (window.location.href.includes("/csp/")) {
                 if (window.location.href.includes("SelectCourseTab")) {
                     if (subjectElement.querySelector('.title')) {
                         courseName = subjectElement.querySelector('.title').textContent.trim();
@@ -235,7 +230,7 @@ function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox
     card.style.width = '200px';
     card.style.boxSizing = "border-box";
     card.style.position = 'absolute';
-    if (siteType = "CSP") {
+    if (window.location.href.includes("/csp/")) {
         card.style.left = "950px";
         el.style.marginTop = "11px";
         el.style.marginLeft = "1px";
@@ -424,7 +419,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     if (el.textContent.trim().length >= 29) {
         ratingElement.style.fontSize = "10px";
     }
-    if (siteType = "CSP") {
+    if (window.location.href.includes("/csp/")) {
         ratingElement.style.marginLeft = "1px";
     }
 
