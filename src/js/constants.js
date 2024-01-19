@@ -40,7 +40,9 @@ self.departmentAliases = {
     "Mathematics": "Calc Mathematics",
     "Geography": "Env Science Remote Geography",
     "Geology": "Graphy Sci Earth Geology",
-    "Business": "Management Business"
+    "Business": "Manag Administrative Business",
+    "Management": "Busi Administrative Management",
+    "Accounting": "Busi Administrative Accounting",
 }
 
 self.CAMPUS_CODES = {

@@ -1,4 +1,8 @@
 if (window.location.href.includes("/csp/")) {
+    window.addEventListener('popstate', function(event) {
+        addRatingToInstructorElements(null);
+    });
+
     let observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (!mutation.addedNodes) return;
@@ -12,8 +16,7 @@ if (window.location.href.includes("/csp/")) {
     });
 
     let config = { childList: true, subtree: true };
-    let targetNode = document.body;
-    observer.observe(targetNode, config);
+    observer.observe(document.body, config);
 
 
     document.addEventListener('click', function(event) {
@@ -69,9 +72,15 @@ function addRatingToInstructorElements(subjectElement) {
             let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
             searchSubjectText = subjectDropdown.options[subjectDropdown.selectedIndex].text;
             let instructorElems = document.querySelectorAll('td[title="Instructor"]');
-            instructorElements = Array.from(instructorElems).filter(function(element) {
-                return subjectElement.contains(element);
-            });
+            if (subjectElement) {
+                let instructorElems = document.querySelectorAll('td[title="Instructor"]');
+                instructorElements = Array.from(instructorElems).filter(function(element) {
+                    return subjectElement.contains(element);
+                });
+            }
+            else {
+                return;
+            }
         }
         else if (window.location.href.includes("SelectSectionTab")) {
             searchSubjectText = "";
@@ -117,7 +126,17 @@ function addRatingToInstructorElements(subjectElement) {
             }
 
             //add rating elem to each valid instructor element
-            const profs = elem.textContent.trim().split(";");
+            let profs = elem.textContent.trim().split(";");
+            if (window.location.href.includes("/csp/")) {
+                profs = elem.textContent.trim().split(",");
+                if (profs.length === 4) {
+                    profs = [profs[0] + "," + profs[1], profs[2] + "," + profs[3]];
+                }
+                else if (profs.length === 2) {
+                    profs = [profs[0] + "," + profs[1]];
+                }
+            }
+
             for (let i = 0; i < profs.length; i++) {
                 addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, profs.length > 1 ? 2 : 1);
             }
@@ -228,23 +247,11 @@ function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox
     card.style.padding = "10px";
     card.style.borderRadius = "10px";
     card.style.whiteSpace = "pre-wrap";
-    card.style.zIndex = "1";
+    card.style.zIndex = "100000000";
     card.style.border = "2px solid #d30f32";
     card.style.width = '200px';
     card.style.boxSizing = "border-box";
     card.style.position = 'absolute';
-    if (window.location.href.includes("/csp/")) {
-        card.style.left = "950px";
-        el.style.marginTop = "11px";
-        el.style.marginLeft = "1px";
-        prof.style.paddingRight = "25px";
-        if (prof.textContent.length < 12) {
-            prof.style.paddingRight = "60px";
-        }
-        if (prof.textContent.length < 7) {
-            prof.style.paddingRight = "80px";
-        }
-    }
 
     name.style.fontSize = "18px";
     name.style.fontWeight = "bold";
@@ -275,33 +282,47 @@ function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox
     det.style.color = "#555";
 }
 
-function addEventListeners (el, card) {
-    el.addEventListener("mouseover", () => {
-        card.style.display = "inline-block";
-        el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        el.style.padding = "10px";
+function addEventListeners (el, card, cardWarningBubble) {
+    el.addEventListener("mouseover", function(event) {
+        if (event.currentTarget === event.target) {
+            if (window.location.href.includes("/csp/")) {
+                document.body.appendChild(card);
+                card.style.display = 'block';
+                let rect = el.getBoundingClientRect();
+                card.style.left = (rect.left - card.offsetWidth) + 'px';
+                card.style.top = rect.top + 'px';
+            }
+            else {
+                card.style.display = "inline-block";
+                card.style.left = (el.offsetLeft - card.offsetWidth) + 'px';
+            }
+            cardWarningBubble.style.display = "none";
+            el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+        }
     });
     el.addEventListener("mouseleave", () => {
         card.style.display = "none";
         el.style.boxShadow = "none";
-        el.style.padding = "8px";
+        cardWarningBubble.style.display = "flex";
     });
     card.addEventListener("mouseover", () => {
         card.style.display = "inline-block";
         el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        el.style.padding = "10px";
+        cardWarningBubble.style.display = "none";
     });
     card.addEventListener("mouseleave", () => {
         card.style.display = "none";
         el.style.boxShadow = "none";
-        el.style.padding = "8px";
+        cardWarningBubble.style.display = "flex";
     });
+
 }
 
 function styleWarning(bubble, message) {
     bubble.style.position = "absolute";
     bubble.style.top = "-8px";
     bubble.style.right = "-8px";
+    bubble.style.right = "185px";
     bubble.style.backgroundColor = "lightgray";
     bubble.style.borderRadius = "50%";
     bubble.style.width = "25px";
@@ -331,20 +352,18 @@ function styleSearchPopup (popup) {
     popup.style.fontSize = "12px";
     popup.style.padding = "5px";
     popup.style.borderRadius = "5px";
-    popup.style.top = "-30px";
-    popup.style.right = "-80px";
+    popup.style.top = "-25px";
+    popup.style.right = "30px";
     popup.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
 }
 
 function addNAEventListeners(el, popup) {
     el.addEventListener("mouseover", () => {
         el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        el.style.padding = "10px";
         popup.style.display = "block";
     });
     el.addEventListener("mouseleave", () => {
         el.style.boxShadow = "none";
-        el.style.padding = "8px";
         popup.style.display = "none";
     });
 }
@@ -356,14 +375,15 @@ function addInaccuracyWarning(card, bubble, message) {
     bubble.textContent = "?";
     message.textContent = "Professor may be inaccurate: only last name provided";
 
-    styleWarning(bubble, message);
-
     bubble.addEventListener("mouseover", () => {
         message.style.display = "block";
     });
     bubble.addEventListener("mouseleave", () => {
         message.style.display = "none";
     });
+
+    styleWarning(bubble, message);
+
 }
 
 function addRatingWarning(el, bubble) {
@@ -391,14 +411,12 @@ function noRating (el, popup, professor) {
     styleSearchPopup(popup);
 
     if (professor === "") {
-        const link = "https://www.google.com/search?q=🗿";
         el.onclick = function () {
-            window.open(link, '_blank');
+            window.open("https://www.google.com/search?q=🗿", '_blank');
         };
     } else {
-        const link = "https://www.google.com/search?q=" + professor + "+rutgers+rate+my+professor";
         el.onclick = function () {
-            window.open(link, '_blank');
+            window.open("https://www.google.com/search?q=" + professor + "+rutgers+rate+my+professor", '_blank');
         };
     }
     addNAEventListeners(el, popup);
@@ -407,6 +425,7 @@ function noRating (el, popup, professor) {
 function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
     el.style.marginRight = "13px";
     const ratingElement = document.createElement('div');
+
     styleRatingElement(ratingElement, el);
     if (num === 1) {
         ratingElement.style.marginLeft = "6px";
@@ -477,7 +496,7 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
                 window.open(reviewsLink.href, '_blank');
             };
 
-            addEventListeners(ratingElement, ratingCard);
+            addEventListeners(ratingElement, ratingCard, ratingWarning);
             if (!prof.includes(",")) { // check if professor Last Name is unavailable
                 addInaccuracyWarning(ratingCard, warningBubble, warning);
                 addRatingWarning(ratingElement, ratingWarning);
@@ -485,6 +504,10 @@ function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
         }
         if (ratingElement.textContent === "N/A") {
             noRating(ratingElement, searchPopup, prof);
+        }
+        if (window.location.href.includes("/csp/")) {
+            ratingElement.style.marginTop = "15px";
+            ratingElement.style.marginRight = "7px";
         }
     })
     .catch(error => {
