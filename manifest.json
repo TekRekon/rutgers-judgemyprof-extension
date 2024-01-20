@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Rutgers JudgeMyProfessor",
-    "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable insights into your professor's teaching quality",
+    "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable information about your professor",
     "version": "1.0",
     "content_scripts": [{
         "matches": [
@@ -20,13 +20,9 @@
         "96": "./src/assets/icons/logo96.png",
         "128": "./src/assets/icons/logo128.png"
     },
-    "host_permissions": ["https://www.ratemyprofessors.com/graphql/*"],
+    "host_permissions": ["https://www.ratemyprofessors.com/graphql/"],
     "background": {
         "service_worker": "./src/js/background.js"
-    },
-
-    "externally_connectable": {
-        "matches": ["https://www.ratemyprofessors.com/graphql/*"]
     },
     "action": {
         "default_icon": {
