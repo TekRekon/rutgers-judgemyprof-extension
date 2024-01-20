@@ -1,14 +1,14 @@
 # Rutgers JudgeMyProfessor Chrome Extension
 
-<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/28794b47-e832-4fa0-a4e0-a8f5622b1159" alt="Extension Logo" width="200px">
-
+<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/1f3e074d-835d-4b15-8b65-48e3504cb4f3" alt="Extension Logo" width="200px">
 
 
 ## Overview
 
 The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to enhance the course registration and planning experience for Rutgers University students. This extension integrates seamlessly with the Rutgers course registration system, providing real-time Rate My Professor ratings alongside course information.
 
-<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/da345c94-5fba-4ab6-9c9c-86b13727e03f" alt="Extension Logo" width="400px">
+<img src="https://github.com/TekRekon/rutgers-judgemyprof-extension/assets/45916994/261aebf3-f8e6-4eb4-85f5-271163f46459" alt="Extension Logo" width="400px">
+
 
 ### Key Features
 
