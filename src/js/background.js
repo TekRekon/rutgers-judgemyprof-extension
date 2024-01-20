@@ -8,6 +8,7 @@ const profIDCache = new Map();
 const filteredProfCache = new Map();
 let profIDFetchPromises = {};
 let profStatsFetchPromises = {};
+let mostLikelyProfFetchPromises = {};
 
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -25,8 +26,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 
-let mostLikelyProfFetchPromises = {};
-
 async function fetchMostLikelyProfessorID(profName, matchText = "") {
     const filteredCacheKey = `${profName}_${matchText}`;
 
@@ -42,7 +41,8 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
         try {
             let profMap = new Map();
 
-            for (let i = 0; i < 5; i++) {
+            //resource-intensive to search extra schools, only search 5 most popular for now
+            for (let i = 0; i < 4; i++) {
                 let school = SCHOOLS[i];
                 let profIDs = await fetchProfessorID(profName, school[0], 4);
                 let limit = profIDs ? profIDs.length : 0;

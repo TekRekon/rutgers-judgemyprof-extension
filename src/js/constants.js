@@ -56,7 +56,7 @@ self.CAMPUS_CODES = {
 
 const FUSE_OPTIONS = {
     includeScore: true,
-    threshold: 1, // Lower threshold for more "fuzzy" matches
+    threshold: 1, // Adjust threshold for "fuzzy" matches
     ignoreLocation: true, // Since we're not interested in where the term is in the string
     minMatchCharLength: 0, // Minimum number of characters that must be matched for a result to be returned
     findAllMatches: true, // Find all matches, regardless of score

@@ -18,7 +18,6 @@ if (window.location.href.includes("/csp/")) {
     let config = { childList: true, subtree: true };
     observer.observe(document.body, config);
 
-
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.dijitTitlePane');
         if (dropdownElem) {
@@ -26,24 +25,7 @@ if (window.location.href.includes("/csp/")) {
         }
     });
 }
-else if (window.location.href.includes("/soc/")) {
-    document.addEventListener('click', function(event) {
-        let dropdownElem = event.target.closest('.subject');
-        if (dropdownElem) {
-            addRatingToInstructorElements(dropdownElem);
-        }
-    });
-}
-
-else if (window.location.href.includes("/oldsoc/")) {
-    document.addEventListener('click', function(event) {
-        let dropdownElem = event.target.closest('.subject');
-        if (dropdownElem) {
-            addRatingToInstructorElements(dropdownElem);
-        }
-    });
-}
-else if (window.location.href.includes("/webreg/")) {
+else if (window.location.href.includes("/soc/") || window.location.href.includes("/oldsoc/") || window.location.href.includes("/webreg/")) {
     document.addEventListener('click', function(event) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
@@ -57,7 +39,7 @@ function addRatingToInstructorElements(subjectElement) {
     //get subject and instructor elements
     let instructorElements = [];
     let searchSubjectText;
-    if (window.location.href.includes("/soc/")) {
+    if (window.location.href.includes("/soc/") || window.location.href.includes("/webreg/")) {
         instructorElements = subjectElement.querySelectorAll('.instructors');
         searchSubjectText = document.getElementById('subjectTitle2').innerText;
     }
@@ -86,15 +68,6 @@ function addRatingToInstructorElements(subjectElement) {
             searchSubjectText = "";
             instructorElements = document.querySelectorAll('td[title="Instructor"]');
         }
-
-    }
-    else if (window.location.href.includes("/webreg/")) {
-        instructorElements = subjectElement.querySelectorAll('.instructors');
-        searchSubjectText = document.getElementById('subjectTitle2').innerText;
-    }
-    else {
-        console.error("Error: site type not found")
-        return;
     }
 
     instructorElements.forEach(function(elem) {
@@ -108,9 +81,7 @@ function addRatingToInstructorElements(subjectElement) {
                     if (subjectElement.querySelector('.title')) {
                         courseName = subjectElement.querySelector('.title').textContent.trim();
                     }
-                    else {
-                        return;
-                    }
+                    else { return; }
                 } else if (window.location.href.includes("SelectSectionTab")) {
                     let courseElement = elem.closest('.dijitTitlePane');
                     if (courseElement) {
@@ -119,26 +90,24 @@ function addRatingToInstructorElements(subjectElement) {
                             courseName = titleElement.textContent.trim();
                         }
                     }
-                    else {
-                        return;
-                    }
+                    else { return; }
                 }
             }
 
             //add rating elem to each valid instructor element
-            let profs = elem.textContent.trim().split(";");
+            let profNames = elem.textContent.trim().split(";");
             if (window.location.href.includes("/csp/")) {
-                profs = elem.textContent.trim().split(",");
-                if (profs.length === 4) {
-                    profs = [profs[0] + "," + profs[1], profs[2] + "," + profs[3]];
+                profNames = elem.textContent.trim().split(",");
+                if (profNames.length === 4) {
+                    profNames = [profNames[0] + "," + profNames[1], profNames[2] + "," + profNames[3]];
                 }
-                else if (profs.length === 2) {
-                    profs = [profs[0] + "," + profs[1]];
+                else if (profNames.length === 2) {
+                    profNames = [profNames[0] + "," + profNames[1]];
                 }
             }
 
-            for (let i = 0; i < profs.length; i++) {
-                addRatingBubble(elem, profs[i], searchSubjectText, courseName, i, profs.length > 1 ? 2 : 1);
+            for (let i = 0; i < profNames.length; i++) {
+                addRatingBubble(elem, profNames[i], searchSubjectText, courseName, profNames.length);
             }
         }
     });
@@ -168,16 +137,15 @@ async function fetchProfStats(profName, matchText) {
 }
 
 
-
-function findParentDiv (el, className) {
+function findParentDiv (element, className) {
     className = className.toLowerCase();
-    while (el && el.parentNode) {
-        el = el.parentNode;
-        if (el.className && el.className.toLowerCase() === className) {
-            while (el && el.previousSibling) {
-                el = el.previousSibling;
-                if (el.className && el.className.toLowerCase() === "metadata hidden") {
-                    return el;
+    while (element && element.parentNode) {
+        element = element.parentNode;
+        if (element.className && element.className.toLowerCase() === className) {
+            while (element && element.previousSibling) {
+                element = element.previousSibling;
+                if (element.className && element.className.toLowerCase() === "metadata hidden") {
+                    return element;
                 }
             }
         }
@@ -185,36 +153,10 @@ function findParentDiv (el, className) {
     return null;
 }
 
-function styleRatingElement(el, prof) {
-    el.className = 'ratingText';
-    el.id = 'rating';
-    el.textContent = '';
-    el.style.fontSize = '17px';
-    el.style.display = 'inline-block';
-    el.style.padding = '8px';
-    el.style.position = 'relative';
-    el.style.backgroundColor = 'lightgray';
-    el.style.borderRadius = '10px';
-    el.style.marginLeft = "15px";
-    el.style.marginRight = "1px";
-    el.style.fontWeight = "bold";
-    el.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
-    el.style.cursor = "pointer";
-
-    el.addEventListener("mousedown", () => {
-        el.style.transform = "translateY(2px)";
-    });
-    el.addEventListener("mouseup", () => {
-        el.style.transform = "translateY(-2px)";
-    });
-}
 
 function getRatingColor(rating) {
     let color = "";
-    if (rating === "X.X") {
-        color = "lightgray";
-    } 
-    else if (rating < 1.0) {
+    if (rating < 1.0) {
         color = "lightcoral";
     }
     else if (rating < 2.0) {
@@ -241,288 +183,268 @@ function getRatingColor(rating) {
     return color;
 }
 
-function stylePopupData (card, name, department, ratingNum, rev, diff, ratingBox, det, el, prof) {
-    card.style.display = "none";
-    card.style.backgroundColor = "white";
-    card.style.padding = "10px";
-    card.style.borderRadius = "10px";
-    card.style.whiteSpace = "pre-wrap";
-    card.style.zIndex = "100000000";
-    card.style.border = "2px solid #d30f32";
-    card.style.width = '200px';
-    card.style.boxSizing = "border-box";
-    card.style.position = 'absolute';
 
-    name.style.fontSize = "18px";
-    name.style.fontWeight = "bold";
-    name.style.marginBottom = "5px";
-
-    department.style.fontSize = "14px";
-    department.style.color = "#555";
-    department.style.marginBottom = "10px";
-
-    ratingNum.style.borderRadius = "8px";
-    ratingNum.style.color = "black";
-    ratingNum.style.fontSize = "14px";
-    ratingNum.style.padding = "8px";
-    ratingNum.style.fontWeight = "bold";
-    ratingNum.style.marginRight = "10px";
-
-    rev.style.fontSize = "14px";
-    rev.style.color = "#555";
-
-    diff.style.marginBottom = "5px";
-
-    ratingBox.style.display = "flex";
-    ratingBox.style.alignItems = "center";
-    ratingBox.style.marginBottom = "10px";
-
-    det.style.marginTop = "10px";
-    det.style.fontSize = "14px";
-    det.style.color = "#555";
-}
-
-function addEventListeners (el, card, cardWarningBubble) {
-    el.addEventListener("mouseover", function(event) {
-        if (event.currentTarget === event.target) {
-            if (window.location.href.includes("/csp/")) {
-                document.body.appendChild(card);
-                card.style.display = 'block';
-                let rect = el.getBoundingClientRect();
-                card.style.left = (rect.left - card.offsetWidth) + 'px';
-                card.style.top = rect.top + 'px';
-            }
-            else {
-                card.style.display = "inline-block";
-                card.style.left = (el.offsetLeft - card.offsetWidth) + 'px';
-            }
-            cardWarningBubble.style.display = "none";
-            el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        }
-    });
-    el.addEventListener("mouseleave", () => {
-        card.style.display = "none";
-        el.style.boxShadow = "none";
-        cardWarningBubble.style.display = "flex";
-    });
-    card.addEventListener("mouseover", () => {
-        card.style.display = "inline-block";
-        el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        cardWarningBubble.style.display = "none";
-    });
-    card.addEventListener("mouseleave", () => {
-        card.style.display = "none";
-        el.style.boxShadow = "none";
-        cardWarningBubble.style.display = "flex";
-    });
-
-}
-
-function styleWarning(bubble, message) {
-    bubble.style.position = "absolute";
-    bubble.style.top = "-8px";
-    bubble.style.right = "-8px";
-    bubble.style.right = "185px";
-    bubble.style.backgroundColor = "lightgray";
-    bubble.style.borderRadius = "50%";
-    bubble.style.width = "25px";
-    bubble.style.height = "25px";
-    bubble.style.display = "flex";
-    bubble.style.fontSize = "14px";
-    bubble.style.justifyContent = "center";
-    bubble.style.alignItems = "center";
-    bubble.style.cursor = "pointer";
-
-    message.style.display = "none";
-    message.style.position = "absolute";
-    message.style.backgroundColor = "lightgray";
-    message.style.fontSize = "12px";
-    message.style.fontWeight = "bold";
-    message.style.padding = "5px";
-    message.style.borderRadius = "5px";
-    message.style.top = "-40px";
-    message.style.right = "7px";
-    message.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-}
-
-function styleSearchPopup (popup) {
-    popup.style.display = "none";
-    popup.style.position = "absolute";
-    popup.style.backgroundColor = "lightgray";
-    popup.style.fontSize = "12px";
-    popup.style.padding = "5px";
-    popup.style.borderRadius = "5px";
-    popup.style.top = "-25px";
-    popup.style.right = "30px";
-    popup.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-}
-
-function addNAEventListeners(el, popup) {
-    el.addEventListener("mouseover", () => {
-        el.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-        popup.style.display = "block";
-    });
-    el.addEventListener("mouseleave", () => {
-        el.style.boxShadow = "none";
-        popup.style.display = "none";
-    });
-}
-
-
-function addInaccuracyWarning(card, bubble, message) {
-    card.appendChild(bubble);
-    card.appendChild(message);
-    bubble.textContent = "?";
-    message.textContent = "Professor may be inaccurate: only last name provided";
-
-    bubble.addEventListener("mouseover", () => {
-        message.style.display = "block";
-    });
-    bubble.addEventListener("mouseleave", () => {
-        message.style.display = "none";
-    });
-
-    styleWarning(bubble, message);
-
-}
-
-function addRatingWarning(el, bubble) {
-    el.appendChild(bubble);
-    bubble.textContent = "?";
-
-    el.style.position = "relative";
-    bubble.style.position = "absolute";
-    bubble.style.top = "-11px";
-    bubble.style.right = "-10px";
-    bubble.style.backgroundColor = "lightgray";
-    bubble.style.borderRadius = "50%";
-    bubble.style.width = "20px";
-    bubble.style.height = "20px";
-    bubble.style.display = "flex";
-    bubble.style.fontSize = "10px";
-    bubble.style.justifyContent = "center";
-    bubble.style.alignItems = "center";
-}
-
-function noRating (el, popup, professor) {
-    el.appendChild(popup);
-    popup.textContent = "Click to search";
-
-    styleSearchPopup(popup);
-
-    if (professor === "") {
-        el.onclick = function () {
-            window.open("https://www.google.com/search?q=🗿", '_blank');
-        };
-    } else {
-        el.onclick = function () {
-            window.open("https://www.google.com/search?q=" + professor + "+rutgers+rate+my+professor", '_blank');
-        };
-    }
-    addNAEventListeners(el, popup);
-}
-
-function addRatingBubble (el, prof, searchSubText, course, num, numProfs) {
-    el.style.marginRight = "13px";
+function addRatingBubble(instructorElem, profText, searchSubText, course, totalNumProfs) {
+    instructorElem.style.marginRight = "13px";
     const ratingElement = document.createElement('div');
 
-    styleRatingElement(ratingElement, el);
-    if (num === 1) {
+    ratingElement.className = 'ratingText';
+    ratingElement.id = 'rating';
+    ratingElement.textContent = '';
+    ratingElement.style.fontSize = '17px';
+    ratingElement.style.display = 'inline-block';
+    ratingElement.style.padding = '8px';
+    ratingElement.style.position = 'relative';
+    ratingElement.style.backgroundColor = 'lightgray';
+    ratingElement.style.borderRadius = '10px';
+    ratingElement.style.marginLeft = "15px";
+    ratingElement.style.marginRight = "1px";
+    ratingElement.style.fontWeight = "bold";
+    ratingElement.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
+    ratingElement.style.cursor = "pointer";
+
+    ratingElement.addEventListener("mousedown", () => {
+        ratingElement.style.transform = "translateY(2px)";
+    });
+    ratingElement.addEventListener("mouseup", () => {
+        ratingElement.style.transform = "translateY(-2px)";
+    });
+
+    if (totalNumProfs === 1) {
         ratingElement.style.marginLeft = "6px";
     } else {
         ratingElement.style.marginLeft = "8px";
-    }
-    if (numProfs === 2) {
         ratingElement.style.fontSize = "14px";
     }
-    if (el.textContent.trim().length > 25) {
+    if (instructorElem.textContent.trim().length > 25) {
         ratingElement.style.fontSize = "12px";
     }
-    if (el.textContent.trim().length >= 29) {
+    if (instructorElem.textContent.trim().length >= 29) {
         ratingElement.style.fontSize = "10px";
     }
     if (window.location.href.includes("/csp/")) {
         ratingElement.style.marginLeft = "1px";
     }
 
-    const profName = document.createElement("div");
-    const dept = document.createElement("div");
-    const rating = document.createElement("div");
-    const reviews = document.createElement("div");
+    const cardProfName = document.createElement("div");
+    const cardProfDept = document.createElement("div");
+    const cardRatingElem = document.createElement("div");
+    const cardReviewsElem = document.createElement("div");
     const reviewsLink = document.createElement("a");
-    const difficulty = document.createElement("div");
-    const wta = document.createElement("div");
-    const warningBubble = document.createElement("div");
-    const warning = document.createElement("div");
-    const ratingWarning = document.createElement("div");
-    const searchPopup = document.createElement("div");
+    const cardDifficultyElem = document.createElement("div");
+    const cardWTAelem = document.createElement("div");
+    const cardInaccuracyWarningBubble = document.createElement("div");
+    const warningMessageElem = document.createElement("div");
+    const ratingElemWarningBubble = document.createElement("div");
+    const searchPopupElem = document.createElement("div");
     const box = document.createElement("div");
     const details = document.createElement("div");
-    const ratingCard = document.createElement('div');
+    const popupCard = document.createElement('div');
 
-    stylePopupData(ratingCard, profName, dept, rating, reviews, difficulty, box, details, ratingElement, el);
+    popupCard.style.display = "none";
+    popupCard.style.backgroundColor = "white";
+    popupCard.style.padding = "10px";
+    popupCard.style.borderRadius = "10px";
+    popupCard.style.whiteSpace = "pre-wrap";
+    popupCard.style.zIndex = "100000000";
+    popupCard.style.border = "2px solid #d30f32";
+    popupCard.style.width = '200px';
+    popupCard.style.boxSizing = "border-box";
+    popupCard.style.position = 'absolute';
 
-    fetchProfStats(prof, searchSubText+ " " + course)
+    cardProfName.style.fontSize = "18px";
+    cardProfName.style.fontWeight = "bold";
+    cardProfName.style.marginBottom = "5px";
+
+    cardProfDept.style.fontSize = "14px";
+    cardProfDept.style.color = "#555";
+    cardProfDept.style.marginBottom = "10px";
+
+    cardRatingElem.style.borderRadius = "8px";
+    cardRatingElem.style.color = "black";
+    cardRatingElem.style.fontSize = "14px";
+    cardRatingElem.style.padding = "8px";
+    cardRatingElem.style.fontWeight = "bold";
+    cardRatingElem.style.marginRight = "10px";
+
+    cardReviewsElem.style.fontSize = "14px";
+    cardReviewsElem.style.color = "#555";
+
+    cardDifficultyElem.style.marginBottom = "5px";
+
+    box.style.display = "flex";
+    box.style.alignItems = "center";
+    box.style.marginBottom = "10px";
+
+    details.style.marginTop = "10px";
+    details.style.fontSize = "14px";
+    details.style.color = "#555";
+
+    fetchProfStats(profText, searchSubText+ " " + course)
     .then(response => {
-        if (!response.data) {
-            ratingElement.textContent = 'N/A';
-        }
-        else if (response.data.numRatings === 0) {
-            ratingElement.textContent = 'X.X';
-        }
-        else {
-            ratingElement.textContent = response.data.avgRating;
-        }
-        rating.textContent = ratingElement.textContent.trim();
-        if (prof === "") {
-            ratingElement.textContent = "N/A";
-        }
-        if (ratingElement.textContent.trim() !== "N/A" && ratingElement.textContent.trim() !== "Error") {
+        if (!response.data || profText === "") { ratingElement.textContent = 'N/A'; }
+        else if (response.data.numRatings === 0) { ratingElement.textContent = 'X.X'; }
+        else { ratingElement.textContent = response.data.avgRating; }
+        cardRatingElem.textContent = ratingElement.textContent;
 
-            let ratingNum = parseFloat(ratingElement.textContent.trim());
-            let ratingColor = ratingElement.textContent.trim()==="X.X" ? "lightgray" : getRatingColor(ratingNum);
+        if (ratingElement.textContent.trim() !== "N/A") {
+            let ratingNum = parseFloat(ratingElement.textContent);
+            let ratingColor = ratingElement.textContent==="X.X" ? "lightgray" : getRatingColor(ratingNum);
             ratingElement.style.backgroundColor = ratingColor;
-            rating.style.backgroundColor = ratingColor;
+            cardRatingElem.style.backgroundColor = ratingColor;
 
-            profName.textContent = response.data.firstName + " " + response.data.lastName;
-            dept.textContent = response.data.department;
+            cardProfName.textContent = response.data.firstName + " " + response.data.lastName;
+            cardProfDept.textContent = response.data.department;
             reviewsLink.textContent = response.data.numRatings + " review(s)";
             reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
             reviewsLink.target = "_blank";
-            difficulty.textContent = "Level Of Difficulty: " + (response.data.numRatings>0 ? response.data.avgDifficulty : "N/A");
-            wta.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent!==-1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
+            cardDifficultyElem.textContent = "Level Of Difficulty: " + (response.data.numRatings>0 ? response.data.avgDifficulty : "N/A");
+            cardWTAelem.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent!==-1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
 
             ratingElement.onclick = function () {
                 window.open(reviewsLink.href, '_blank');
             };
 
-            addEventListeners(ratingElement, ratingCard, ratingWarning);
-            if (!prof.includes(",")) { // check if professor Last Name is unavailable
-                addInaccuracyWarning(ratingCard, warningBubble, warning);
-                addRatingWarning(ratingElement, ratingWarning);
+            ratingElement.addEventListener("mouseover", function(event) {
+                if (event.currentTarget === event.target) {
+                    if (window.location.href.includes("/csp/")) {
+                        document.body.appendChild(popupCard);
+                        popupCard.style.display = 'block';
+                        let rect = ratingElement.getBoundingClientRect();
+                        popupCard.style.left = (rect.left - popupCard.offsetWidth) + 'px';
+                        popupCard.style.top = rect.top + 'px';
+                    }
+                    else {
+                        popupCard.style.display = "inline-block";
+                        popupCard.style.left = (ratingElement.offsetLeft - popupCard.offsetWidth) + 'px';
+                    }
+                    ratingElemWarningBubble.style.display = "none";
+                    ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+                }
+            });
+            ratingElement.addEventListener("mouseleave", () => {
+                popupCard.style.display = "none";
+                ratingElement.style.boxShadow = "none";
+                ratingElemWarningBubble.style.display = "flex";
+            });
+            popupCard.addEventListener("mouseover", () => {
+                popupCard.style.display = "inline-block";
+                ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+                ratingElemWarningBubble.style.display = "none";
+            });
+            popupCard.addEventListener("mouseleave", () => {
+                popupCard.style.display = "none";
+                ratingElement.style.boxShadow = "none";
+                ratingElemWarningBubble.style.display = "flex";
+            });
+
+
+            if (!profText.includes(",")) {         //add warnings if prof first name is unavailable
+                popupCard.appendChild(cardInaccuracyWarningBubble);
+                popupCard.appendChild(warningMessageElem);
+                cardInaccuracyWarningBubble.textContent = "?";
+                warningMessageElem.textContent = "Professor may be inaccurate: only last name provided";
+
+                cardInaccuracyWarningBubble.addEventListener("mouseover", () => {
+                    warningMessageElem.style.display = "block";
+                });
+                cardInaccuracyWarningBubble.addEventListener("mouseleave", () => {
+                    warningMessageElem.style.display = "none";
+                });
+
+                cardInaccuracyWarningBubble.style.position = "absolute";
+                cardInaccuracyWarningBubble.style.top = "-8px";
+                cardInaccuracyWarningBubble.style.right = "-8px";
+                cardInaccuracyWarningBubble.style.right = "185px";
+                cardInaccuracyWarningBubble.style.backgroundColor = "lightgray";
+                cardInaccuracyWarningBubble.style.borderRadius = "50%";
+                cardInaccuracyWarningBubble.style.width = "25px";
+                cardInaccuracyWarningBubble.style.height = "25px";
+                cardInaccuracyWarningBubble.style.display = "flex";
+                cardInaccuracyWarningBubble.style.fontSize = "14px";
+                cardInaccuracyWarningBubble.style.justifyContent = "center";
+                cardInaccuracyWarningBubble.style.alignItems = "center";
+                cardInaccuracyWarningBubble.style.cursor = "pointer";
+
+                warningMessageElem.style.display = "none";
+                warningMessageElem.style.position = "absolute";
+                warningMessageElem.style.backgroundColor = "lightgray";
+                warningMessageElem.style.fontSize = "12px";
+                warningMessageElem.style.fontWeight = "bold";
+                warningMessageElem.style.padding = "5px";
+                warningMessageElem.style.borderRadius = "5px";
+                warningMessageElem.style.top = "-40px";
+                warningMessageElem.style.right = "7px";
+                warningMessageElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
+
+                ratingElement.appendChild(ratingElemWarningBubble);
+                ratingElemWarningBubble.textContent = "?";
+
+                ratingElement.style.position = "relative";
+                ratingElemWarningBubble.style.position = "absolute";
+                ratingElemWarningBubble.style.top = "-11px";
+                ratingElemWarningBubble.style.right = "-10px";
+                ratingElemWarningBubble.style.backgroundColor = "lightgray";
+                ratingElemWarningBubble.style.borderRadius = "50%";
+                ratingElemWarningBubble.style.width = "20px";
+                ratingElemWarningBubble.style.height = "20px";
+                ratingElemWarningBubble.style.display = "flex";
+                ratingElemWarningBubble.style.fontSize = "10px";
+                ratingElemWarningBubble.style.justifyContent = "center";
+                ratingElemWarningBubble.style.alignItems = "center";
             }
         }
-        if (ratingElement.textContent === "N/A") {
-            noRating(ratingElement, searchPopup, prof);
+        else if (ratingElement.textContent === "N/A") {
+            ratingElement.appendChild(searchPopupElem);
+            searchPopupElem.textContent = "Click to search";
+            searchPopupElem.style.display = "none";
+            searchPopupElem.style.position = "absolute";
+            searchPopupElem.style.backgroundColor = "lightgray";
+            searchPopupElem.style.fontSize = "12px";
+            searchPopupElem.style.padding = "5px";
+            searchPopupElem.style.borderRadius = "5px";
+            searchPopupElem.style.top = "-25px";
+            searchPopupElem.style.right = "30px";
+            searchPopupElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
+
+            if (profText === "") {
+                ratingElement.onclick = function () {
+                    window.open("https://www.google.com/search?q=🗿", '_blank');
+                };
+            } else {
+                ratingElement.onclick = function () {
+                    window.open("https://www.google.com/search?q=" + profText + "+rutgers+rate+my+professor", '_blank');
+                };
+            }
+            ratingElement.addEventListener("mouseover", () => {
+                ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+                searchPopupElem.style.display = "block";
+            });
+            ratingElement.addEventListener("mouseleave", () => {
+                ratingElement.style.boxShadow = "none";
+                searchPopupElem.style.display = "none";
+            });
         }
         if (window.location.href.includes("/csp/")) {
             ratingElement.style.marginTop = "15px";
             ratingElement.style.marginRight = "7px";
         }
+
     })
     .catch(error => {
         console.error("Error occurred while fetching professor stats: ", error);
         ratingElement.textContent = 'Error';
     });
-    el.appendChild(ratingElement);
-    el.appendChild(ratingCard);
-    ratingCard.appendChild(profName);
-    ratingCard.appendChild(dept);
-    ratingCard.appendChild(box);
-    box.appendChild(rating);
-    box.appendChild(reviews);
-    reviews.appendChild(reviewsLink);
-    ratingCard.appendChild(details);
-    details.appendChild(difficulty);
-    details.appendChild(wta);
+
+    instructorElem.appendChild(ratingElement);
+    instructorElem.appendChild(popupCard);
+    popupCard.appendChild(cardProfName);
+    popupCard.appendChild(cardProfDept);
+    popupCard.appendChild(box);
+    box.appendChild(cardRatingElem);
+    box.appendChild(cardReviewsElem);
+    cardReviewsElem.appendChild(reviewsLink);
+    popupCard.appendChild(details);
+    details.appendChild(cardDifficultyElem);
+    details.appendChild(cardWTAelem);
 }
