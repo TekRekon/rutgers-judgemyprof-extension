@@ -26,7 +26,7 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 
 ### Option 1: From Chrome Webstore
 
-- 
+- [Link](https://chromewebstore.google.com/detail/rutgers-judgemyprofessor/pobjkogdmfhednbhiinlipploogcbgpg?hl=en-US&utm_source=ext_sidebar)
 
 ### Option 2: From Source
 
