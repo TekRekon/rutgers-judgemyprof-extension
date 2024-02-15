@@ -313,7 +313,12 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
                 ratingElement.style.backgroundColor = ratingColor;
                 cardRatingElem.style.backgroundColor = ratingColor;
 
-                cardProfName.textContent = response.data.firstName + " " + response.data.lastName;
+
+                let profName = response.data.firstName + " " + response.data.lastName;
+                profName = profName.toLowerCase().replace(/\b[a-z]/g, function(letter) {
+                    return letter.toUpperCase();
+                });
+                cardProfName.textContent = profName;
                 cardProfDept.textContent = response.data.department;
                 reviewsLink.textContent = response.data.numRatings + " review(s)";
                 reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
@@ -357,7 +362,6 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
                     ratingElement.style.boxShadow = "none";
                     ratingElemWarningBubble.style.display = "flex";
                 });
-
 
                 if (!profText.includes(",")) {         //add warnings if prof first name is unavailable
                     popupCard.appendChild(cardInaccuracyWarningBubble);
@@ -446,8 +450,29 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
             }
         })
         .catch(error => {
-            console.error("Error occurred while fetching professor stats: ", error);
-            ratingElement.textContent = 'Error';
+            ratingElement.textContent = "Error";
+            ratingElement.appendChild(searchPopupElem);
+            searchPopupElem.textContent = error;
+            searchPopupElem.style.display = "none";
+            searchPopupElem.style.position = "absolute";
+            searchPopupElem.style.backgroundColor = "lightgray";
+            searchPopupElem.style.fontSize = "12px";
+            searchPopupElem.style.padding = "5px";
+            searchPopupElem.style.borderRadius = "5px";
+            searchPopupElem.style.top = "-25px";
+            searchPopupElem.style.right = "30px";
+            searchPopupElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
+
+            ratingElement.addEventListener("mouseover", () => {
+                ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+                searchPopupElem.style.display = "block";
+            });
+            ratingElement.addEventListener("mouseleave", () => {
+                ratingElement.style.boxShadow = "none";
+                searchPopupElem.style.display = "none";
+            });
+
+
         })
         .finally(() => {
             ratingElement.classList.remove('pulsating');
