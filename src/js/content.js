@@ -303,7 +303,7 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
             } else if (response.data.numRatings === 0) {
                 ratingElement.textContent = 'X.X';
             } else {
-                ratingElement.textContent = response.data.avgRating;
+                ratingElement.textContent = response.data.avgRating.toFixed(1);
             }
             cardRatingElem.textContent = ratingElement.textContent;
 
@@ -315,7 +315,7 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
 
 
                 let profName = response.data.firstName + " " + response.data.lastName;
-                profName = profName.toLowerCase().replace(/\b[a-z]/g, function(letter) {
+                profName = profName.toLowerCase().replace(/\b[a-z]/g, function (letter) {
                     return letter.toUpperCase();
                 });
                 cardProfName.textContent = profName;
@@ -452,8 +452,14 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
         .catch(error => {
             ratingElement.textContent = "Error";
             ratingElement.appendChild(searchPopupElem);
-            searchPopupElem.textContent = error;
+            searchPopupElem.textContent = error.message;
             searchPopupElem.style.display = "none";
+
+            searchPopupElem.style.maxWidth = "250px";
+            searchPopupElem.style.overflow = "hidden";
+            searchPopupElem.style.textOverflow = "ellipsis";
+            searchPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
+
             searchPopupElem.style.position = "absolute";
             searchPopupElem.style.backgroundColor = "lightgray";
             searchPopupElem.style.fontSize = "12px";
@@ -472,6 +478,39 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
                 searchPopupElem.style.display = "none";
             });
 
+            ratingElement.onclick = function () {
+                let htmlContent = `
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Error Stack</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 20px; }
+                            pre {
+                                background-color: #f4f4f4;
+                                padding: 10px;
+                                border-radius: 5px;
+                                white-space: pre-wrap; 
+                                word-wrap: break-word;
+                                overflow-wrap: break-word; 
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Error Stack: </h2>
+                        <h4> (Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub) </h4>
+                        <pre>${error.stack}</pre>
+                   
+                    </body>
+                    </html>
+                `;
+
+                let blob = new Blob([htmlContent], {type: 'text/html'});
+                let url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            };
 
         })
         .finally(() => {
