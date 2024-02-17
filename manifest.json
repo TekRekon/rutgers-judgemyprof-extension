@@ -3,13 +3,17 @@
   "name": "Rutgers JudgeMyProfessor",
   "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable information about your professors",
   "version": "1.1.0",
+  "permissions": [
+    "storage"
+  ],
   "content_scripts": [
     {
       "matches": [
         "*://sims.rutgers.edu/webreg/*",
         "*://sis.rutgers.edu/soc/*",
         "*://sis.rutgers.edu/oldsoc/*",
-        "*://sims.rutgers.edu/csp/*"
+        "*://sims.rutgers.edu/csp/*",
+        "*://classes.rutgers.edu/*"
       ],
       "js": [
         "./src/js/content.js"
