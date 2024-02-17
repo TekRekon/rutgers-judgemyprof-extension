@@ -1,32 +1,42 @@
 importScripts("./constants.js", "./fuse.js");
 
-//TODO use chrome storage to store cache
 
-const cache = {
-    profStats: new Map(),
-    profID: new Map(),
-    filteredProf: new Map()
-};
+let filteredProfStats = new Map();
+let profStatsCache = new Map();
+let profIDCache = new Map();
 let fetchPromises = {
     profID: {},
     profStats: {},
     mostLikelyProf: {}
 };
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+const browserAPI = typeof browser !== "undefined" ? browser : chrome;
+
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.contentScriptQuery === 'fetchProfStats') {
         fetchMostLikelyProfessorID(request.profName, request.matchText)
-            .then(profStats => sendResponse({data: profStats}))
-            .catch(error => sendResponse({error: error.message}));
+            .then(profStats => {
+                browserAPI.storage.local.set({[`${request.profName}_${request.matchText}`]: profStats});
+                sendResponse({data: profStats});
+            })
+            .catch(error => {
+                sendResponse({
+                    error: {
+                        // Can't send the error object directly because of Chrome serialization
+                        message: error.message,
+                        stack: error.stack
+                    }
+                });
+            });
         return true; // Indicate that we will send response asynchronously
     }
 });
 
+
 async function fetchMostLikelyProfessorID(profName, matchText = "") {
-    const cacheKey = `${profName}${matchText}`;
-    if (cache.filteredProf.has(cacheKey)) {
-        console.log("filteredCacheHit");
-        return cache.filteredProf.get(cacheKey);
+    const cacheKey = `${profName}_${matchText}`;
+    if (filteredProfStats.has(cacheKey)) {
+        return filteredProfStats.get(cacheKey);
     }
 
     return fetchPromises.mostLikelyProf[cacheKey] ||= (async () => {
@@ -48,7 +58,7 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
 
         if (profMap.size === 1) {
             let firstValue = profMap.values().next().value;
-            cache.filteredProf.set(cacheKey, firstValue);
+            filteredProfStats.set(cacheKey, firstValue);
             return firstValue;
         }
         //2) Select professors that are tied in terms of their department which matches most closely to subject/class
@@ -87,7 +97,7 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
             }
         }
         profMap.get(maxProfID).department = fetchAlias(profMap.get(maxProfID).department, true);
-        cache.filteredProf.set(cacheKey, profMap.get(maxProfID));
+        filteredProfStats.set(cacheKey, profMap.get(maxProfID));
         return profMap.get(maxProfID);
 
     })().finally(() => delete fetchPromises.mostLikelyProf[cacheKey]);
@@ -96,15 +106,16 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
 
 async function fetchProfessorID(profName, schoolID, first = 1) {
     const cacheKey = `${profName}${schoolID}`;
-    if (cache.profID.has(cacheKey)) {
-        return cache.profID.get(cacheKey);
-    } else if (!fetchPromises.profID[cacheKey]) {
+    if (profIDCache.has(cacheKey)) {
+        console.log("cache hit profID");
+        return profIDCache.get(cacheKey);
+    }
+    if (!fetchPromises.profID[cacheKey]) {
         fetchPromises.profID[cacheKey] = apiFetch(ProfessorIDQuery, {text: profName, schoolID, first}).then(data => {
-            const edges = data.data.newSearch.teachers.edges;
-            if (edges.length !== 0) {
-                cache.profID.set(cacheKey, edges);
+            if (!(data.data.newSearch.teachers.edges.length === 0)) {
+                profIDCache.set(cacheKey, data.data.newSearch.teachers.edges);
             }
-            return edges;
+            return data.data.newSearch.teachers.edges;
         }).finally(() => delete fetchPromises.profID[cacheKey]);
     }
     return fetchPromises.profID[cacheKey];
@@ -112,13 +123,16 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
 
 
 async function fetchProfessorStats(profID) {
-    if (cache.profStats.has(profID)) {
-        return cache.profStats.get(profID);
-    } else if (!fetchPromises.profStats[profID]) {
+    if (profStatsCache.has(profID)) {
+        console.log("cache hit stats");
+        return profStatsCache.get(profID);
+    }
+    if (!fetchPromises.profStats[profID]) {
         fetchPromises.profStats[profID] = apiFetch(ProfessorStatsQuery, {id: profID}).then(data => {
-            const statsNode = data.data.node;
-            cache.profStats.set(profID, statsNode);
-            return statsNode;
+            if (data.data.node) {
+                profStatsCache.set(profID, data.data.node);
+            }
+            return data.data.node;
         }).finally(() => delete fetchPromises.profStats[profID]);
     }
     return fetchPromises.profStats[profID];
@@ -135,6 +149,12 @@ async function apiFetch(query, variables) {
         }
         return await response.json();
     } catch (error) {
+        //check for error if there is no internet connection
+        if (error instanceof TypeError) {
+            let err = new Error(`API fetch failed. Check your internet connection.`);
+            err.stack = error.stack;
+            throw err;
+        }
         throw error;
     }
 }
@@ -155,3 +175,26 @@ function fetchAlias(departmentName, backToOriginal = false) {
         return departmentAliases[departmentName];
     }
 }
+
+
+async function initializeCache() {
+    try {
+        await browserAPI.storage.local.get(null, function (items) {
+            const threeWeeks = 3 * 7 * 24 * 60 * 60 * 1000; // milliseconds
+            if (!items.cacheTimestamp || (Date.now() - items.cacheTimestamp > threeWeeks)) {
+                browserAPI.storage.local.clear();
+                browserAPI.storage.local.set({'cacheTimestamp': Date.now()});
+            } else {
+                for (let key in items) {
+                    if (key !== 'cacheTimestamp') {
+                        filteredProfStats.set(key, items[key]);
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        //pass
+    }
+}
+
+initializeCache();
