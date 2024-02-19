@@ -92,17 +92,29 @@ function addRatingToInstructorElements(subjectElement) {
             }
 
             //add rating elem to each valid instructor element
-            let profNames = elem.textContent.trim().split(";");
+            let profNames = elem.textContent.trim().split("; ");
             if (window.location.href.includes("/csp/")) {
-                profNames = elem.textContent.trim().split(",");
+                profNames = elem.textContent.trim().split(", ");
                 if (profNames.length === 4) {
-                    profNames = [profNames[0] + "," + profNames[1], profNames[2] + "," + profNames[3]];
+                    profNames = [profNames[0] + ", " + profNames[1], profNames[2] + ", " + profNames[3]];
                 } else if (profNames.length === 2) {
-                    profNames = [profNames[0] + "," + profNames[1]];
+                    profNames = [profNames[0] + ", " + profNames[1]];
                 }
+            }
+            for (let i = 0; i < profNames.length; i++) {
+                let firstAndLast = profNames[i].split(", ");
+                for (let j = 0; j < firstAndLast.length; j++) {
+                    if (firstAndLast[j].includes(" ")) { //has middle initial
+                        firstAndLast[j] = firstAndLast[j].split(" ")[0];
+                    }
+                }
+                profNames[i] = firstAndLast.join(", ");
             }
 
             for (let i = 0; i < profNames.length; i++) {
+                if (profNames.length===2) {
+                    console.log(profNames[i]);
+                }
                 addRatingBubble(elem, profNames[i], searchSubjectText, courseName, profNames.length);
             }
         }
@@ -111,25 +123,21 @@ function addRatingToInstructorElements(subjectElement) {
 
 
 async function fetchProfStats(profName, matchText) {
-    try {
-        return await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-                contentScriptQuery: 'fetchProfStats',
-                matchText: matchText,
-                profName: profName
-            }, response => {
-                if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError);
-                } else if (response.error) {
-                    reject(response.error);
-                } else {
-                    resolve(response);
-                }
-            });
+    return await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'fetchProfStats',
+            matchText: matchText,
+            profName: profName
+        }, response => {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+            } else if (response.error) {
+                reject(response.error);
+            } else {
+                resolve(response);
+            }
         });
-    } catch (error) {
-        throw error;
-    }
+    });
 }
 
 
@@ -222,7 +230,7 @@ function addRatingBubble(instructorElem, profText, searchSubText, course, totalN
     });
     if (window.location.href.includes("/csp/")) {
         ratingElement.style.marginTop = "15px";
-        ratingElement.style.marginRight = "7px";
+        ratingElement.style.marginRight = "9px";
     }
 
     if (totalNumProfs === 1) {

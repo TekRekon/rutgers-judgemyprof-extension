@@ -10,26 +10,42 @@ let fetchPromises = {
     mostLikelyProf: {}
 };
 
-const browserAPI = typeof browser !== "undefined" ? browser : chrome;
 
-browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.contentScriptQuery === 'fetchProfStats') {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'fetchProfStats') {
         fetchMostLikelyProfessorID(request.profName, request.matchText)
             .then(profStats => {
-                browserAPI.storage.local.set({[`${request.profName}_${request.matchText}`]: profStats});
+                chrome.storage.local.set({[`${request.profName}_${request.matchText}`]: profStats});
                 sendResponse({data: profStats});
             })
             .catch(error => {
                 sendResponse({
                     error: {
-                        // Can't send the error object directly because of Chrome serialization
                         message: error.message,
                         stack: error.stack
                     }
                 });
             });
-        return true; // Indicate that we will send response asynchronously
     }
+    else if (request.action === 'resetCache') {
+        try {
+            filteredProfStats.clear();
+            profStatsCache.clear();
+            profIDCache.clear();
+            fetchPromises = {
+                profID: {},
+                profStats: {},
+                mostLikelyProf: {}
+            };
+            chrome.storage.local.clear();
+            sendResponse({status: 1});
+        }
+        catch (error) {
+            sendResponse({status: 0, errorMsg: error.message});
+        }
+
+    }
+    return true;
 });
 
 
@@ -179,11 +195,11 @@ function fetchAlias(departmentName, backToOriginal = false) {
 
 async function initializeCache() {
     try {
-        await browserAPI.storage.local.get(null, function (items) {
+        await chrome.storage.local.get(null, function (items) {
             const threeWeeks = 3 * 7 * 24 * 60 * 60 * 1000; // milliseconds
             if (!items.cacheTimestamp || (Date.now() - items.cacheTimestamp > threeWeeks)) {
-                browserAPI.storage.local.clear();
-                browserAPI.storage.local.set({'cacheTimestamp': Date.now()});
+                chrome.storage.local.clear();
+                chrome.storage.local.set({'cacheTimestamp': Date.now()});
             } else {
                 for (let key in items) {
                     if (key !== 'cacheTimestamp') {
