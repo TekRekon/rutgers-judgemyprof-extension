@@ -41,6 +41,7 @@
       "48": "./src/assets/icons/logo48.png",
       "96": "./src/assets/icons/logo96.png",
       "128": "./src/assets/icons/logo128.png"
-    }
+    },
+    "default_popup": "popup.html"
   }
 }
