@@ -1,30 +1,40 @@
-if (window.location.href.includes("/csp/")) {
+const currentPage = window.location.href;
+const isCSP = currentPage.includes("/csp/");
+const isSOC = currentPage.includes("/soc/");
+const isOldSOC = currentPage.includes("/oldsoc/");
+const isWebReg = currentPage.includes("/webreg/");
+
+
+if (isCSP) {
+    //when user clicks a tab within csp/page loads
     window.addEventListener('popstate', function (event) {
         addRatingToInstructorElements(null);
     });
 
-    let observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
-            if (!mutation.addedNodes) return;
-            for (let i = 0; i < mutation.addedNodes.length; i++) {
-                if (mutation.addedNodes[i].id === "SectionSelectID") {
-                    addRatingToInstructorElements(null);
-                    observer.disconnect();
-                }
-            }
-        });
-    });
-
-    let config = {childList: true, subtree: true};
-    observer.observe(document.body, config);
-
     document.addEventListener('click', function (event) {
-        let dropdownElem = event.target.closest('.dijitTitlePane');
-        if (dropdownElem) {
-            addRatingToInstructorElements(dropdownElem);
+        //when user clicks on a course dropdown
+        if (event.target.closest('.dijitTitlePane')) {
+            addRatingToInstructorElements(event.target.closest('.dijitTitlePane'));
+        }
+        //if next/prev button is clicked in the build schedule tab
+        if (event.target.closest('#dijit_form_Button_3') || event.target.closest('#dijit_form_Button_2')) {
+            addRatingToInstructorElements(null);
+        }
+        //if remove button clicked in saved schedule tab
+        if (event.target.closest('tbody[dojoattachpoint="scheduleList"] .remove')) {
+            addRatingToInstructorElements(null);
+        }
+        //if a schedule is clicked in the saved schedule tab
+        if (event.target.closest('tbody[dojoattachpoint="scheduleList"] a[dojoattachpoint="scheduleName"]')) {
+            addRatingToInstructorElements(null);
+        }
+        //if the user clicks on the list view link in the saved schedule tab or build schedule tab
+        if (event.target.closest('.list-view-link')) {
+            addRatingToInstructorElements(null);
         }
     });
-} else if (window.location.href.includes("/soc/") || window.location.href.includes("/oldsoc/") || window.location.href.includes("/webreg/")) {
+} else if (isSOC || isOldSOC || isWebReg) {
+    //when user clicks on a course dropdown
     document.addEventListener('click', function (event) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
@@ -34,94 +44,501 @@ if (window.location.href.includes("/csp/")) {
 }
 
 
-function addRatingToInstructorElements(subjectElement) {
-    //get subject and instructor elements
-    let instructorElements = [];
-    let searchSubjectText;
-    if (window.location.href.includes("/soc/") || window.location.href.includes("/webreg/")) {
-        instructorElements = subjectElement.querySelectorAll('.instructors');
-        searchSubjectText = document.getElementById('subjectTitle2').innerText;
-    } else if (window.location.href.includes("/oldsoc/")) {
-        instructorElements = subjectElement.querySelectorAll('.instructors');
-        searchSubjectText = document.getElementById('subjectTitle').innerText;
-
-    } else if (window.location.href.includes("/csp/")) {
-
-        if (window.location.href.includes("SelectCourseTab")) {
-            let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
-            searchSubjectText = subjectDropdown.options[subjectDropdown.selectedIndex].text;
-            let instructorElems = document.querySelectorAll('td[title="Instructor"]');
-            if (subjectElement) {
-                let instructorElems = document.querySelectorAll('td[title="Instructor"]');
-                instructorElements = Array.from(instructorElems).filter(function (element) {
-                    return subjectElement.contains(element);
-                });
-            } else {
-                return;
-            }
-        } else if (window.location.href.includes("SelectSectionTab")) {
-            searchSubjectText = "";
-            instructorElements = document.querySelectorAll('td[title="Instructor"]');
-        }
+/**
+ * Asynchronously adds ratings to instructor elements
+ *
+ * @param {HTMLElement} elementWithCourseName - Optionally null. The element containing the course name.
+ */
+async function addRatingToInstructorElements(elementWithCourseName) {
+    try {
+        const instructorElements = extractInstructorElements(elementWithCourseName);
+        const subjectName = extractSubjectName();
+        //instead of using a for loop, we use Promise.all to rate all instructor elements concurrently
+        const promises = instructorElements.map(instructorElement => rateInstructorElement(instructorElement, subjectName, elementWithCourseName));
+        await Promise.all(promises);
     }
-
-    instructorElements.forEach(function (elem) {
-        if (elem && !elem.querySelector('.ratingText')) {
-            //get course name
-            let courseName = "";
-            if (window.location.href.includes("/soc/") || window.location.href.includes("/oldsoc/") || window.location.href.includes("/webreg/")) {
-                courseName = findParentDiv(elem, "courseData").innerText;
-            } else if (window.location.href.includes("/csp/")) {
-                if (window.location.href.includes("SelectCourseTab")) {
-                    if (subjectElement.querySelector('.title')) {
-                        courseName = subjectElement.querySelector('.title').textContent.trim();
-                    } else {
-                        return;
-                    }
-                } else if (window.location.href.includes("SelectSectionTab")) {
-                    let courseElement = elem.closest('.dijitTitlePane');
-                    if (courseElement) {
-                        let titleElement = courseElement.querySelector('.title');
-                        if (titleElement) {
-                            courseName = titleElement.textContent.trim();
-                        }
-                    } else {
-                        return;
-                    }
-                }
-            }
-
-            //add rating elem to each valid instructor element
-            let profNames = elem.textContent.trim().split("; ");
-            if (window.location.href.includes("/csp/")) {
-                profNames = elem.textContent.trim().split(", ");
-                if (profNames.length === 4) {
-                    profNames = [profNames[0] + ", " + profNames[1], profNames[2] + ", " + profNames[3]];
-                } else if (profNames.length === 2) {
-                    profNames = [profNames[0] + ", " + profNames[1]];
-                }
-            }
-            for (let i = 0; i < profNames.length; i++) {
-                let firstAndLast = profNames[i].split(", ");
-                for (let j = 0; j < firstAndLast.length; j++) {
-                    if (firstAndLast[j].includes(" ")) { //has middle initial
-                        firstAndLast[j] = firstAndLast[j].split(" ")[0];
-                    }
-                }
-                profNames[i] = firstAndLast.join(", ");
-            }
-
-            for (let i = 0; i < profNames.length; i++) {
-                if (profNames.length===2) {
-                    console.log(profNames[i]);
-                }
-                addRatingBubble(elem, profNames[i], searchSubjectText, courseName, profNames.length);
-            }
-        }
-    });
+    catch (error) {
+        console.error(error);
+    }
 }
 
 
+/**
+ * Rates an instructor element, adding rating bubbles for each possible professor.
+ *
+ * @param {Element} instructorElement - The DOM element associated with the instructor.
+ * @param {string} subjectName - The name of the subject.
+ * @param {Element} elementWithCourseName - Optionally null. The DOM element containing the course name.
+ */
+async function rateInstructorElement(instructorElement, subjectName, elementWithCourseName) {
+    const courseName = extractCourseName(instructorElement, elementWithCourseName);
+    const instructorNames = extractInstructorNames(instructorElement);
+    let matchText = courseName + " " + subjectName;
+    //replace all non-alphabetic characters with a space
+    matchText = matchText.replace(/[+0-9()]/g, "").replace(/[^a-zA-Z ]/g, "");
+    //replace all multiple spaces with a single space
+    matchText = matchText.replace(/\s+/g, ' ').trim();
+    instructorElement.style.marginRight = "13px";
+
+    if (isCSP && !instructorElement.querySelector('.jmp-rating-bubble')) {
+        //on CSP, any name can be either a first or last name. Attempt combination, otherwise use the name as is
+        let initializedBubbles = new Set();
+
+        for (let i = 0; i < instructorNames.length; i++) {
+            let currProfSearch = instructorNames[i];
+            if (((i + 1) < instructorNames.length) && (instructorNames[i] !== instructorNames[i + 1])) {
+                currProfSearch = instructorNames[i] + " " + instructorNames[i + 1];
+            }
+            if (initializedBubbles.has(currProfSearch)) {
+                continue;
+            }
+            if ((i + 1) < instructorNames.length) {
+                initializedBubbles.add(instructorNames[i] + " " + instructorNames[i + 1]);
+                initializedBubbles.add(instructorNames[i + 1] + " " + instructorNames[i]);
+            }
+            initializedBubbles.add(instructorNames[i]);
+            let ratingBubbleElem = initializeLoadingBubble(instructorElement);
+            let response = null;
+            try {
+                response = await fetchProfStats(currProfSearch, matchText);
+            } catch (error) {
+                convertToErrorBubble(ratingBubbleElem, error);
+                continue;
+            }
+
+            //if both names given and data is available or only last name given with data available or unavailable
+            if ((response && response.data) || !currProfSearch.includes(" ")) {
+                if (currProfSearch.includes(" ")) {
+                    initializedBubbles.add(instructorNames[i + 1]);
+                }
+                populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
+                i += 1;
+            }
+            //if both names given and data is unavailable
+            else {
+                try {
+                    response = await fetchProfStats(instructorNames[i], matchText);
+                    populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorNames[i]);
+                } catch (error) {
+                    convertToErrorBubble(ratingBubbleElem, error);
+                    continue;
+                }
+            }
+        }
+    } else if (isSOC || isOldSOC || isWebReg) {
+        let initializedBubbles = new Set();
+        for (const instructorName of instructorNames) {
+            if (initializedBubbles.has(instructorName)) {
+                continue;
+            }
+            initializedBubbles.add(instructorName);
+            let ratingBubbleElem = initializeLoadingBubble(instructorElement);
+            fetchProfStats(instructorName, matchText)
+                .then(response => {
+                    populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorName);
+                })
+                .catch(error => {
+                    convertToErrorBubble(ratingBubbleElem, error);
+                });
+        }
+    }
+}
+
+
+/**
+ * Extracts and filters instructor-related DOM elements based on the website.
+ * Uses the elementWithCourseName parameter to filter out instructor elements not associated with the current selected
+ * course. If null, attempts to extract all instructor elements on the page, then filter them.
+ *
+ * @param {Element} elementWithCourseName - Optionally null. DOM element containing course information.
+ * @returns {Element[]} Array of DOM elements representing instructors, post-filtering.
+ */
+function extractInstructorElements(elementWithCourseName) {
+    let unfilteredInstructorElements = [];
+    if (isSOC || isWebReg || isOldSOC) {
+        unfilteredInstructorElements = elementWithCourseName.querySelectorAll('.instructors');
+    } else if (isCSP) {
+        unfilteredInstructorElements = document.querySelectorAll('td[title="Instructor"]');
+        //filter out selected instructor elements not from the current dropdown if a dropdown was clicked
+        if (elementWithCourseName) {
+            unfilteredInstructorElements = Array.from(unfilteredInstructorElements).filter(function (instructorElement) {
+                return elementWithCourseName.contains(instructorElement);
+            });
+        }
+    }
+    //filter out instructor elements that are empty or already have a rating bubble
+    let filteredInstructorElements = Array.from(unfilteredInstructorElements).filter(function (instructorElement) {
+        return instructorElement && !instructorElement.querySelector('.jmp-rating-bubble');
+    });
+    return filteredInstructorElements;
+}
+
+
+/**
+ * Extracts the subject name from the current page based on the context (SOC, WebReg, old SOC, or CSP).
+ */
+function extractSubjectName() {
+    let subjectName = "";
+    if (isSOC || isWebReg) {
+        subjectName = document.getElementById('subjectTitle2').innerText;
+    } else if (isOldSOC) {
+        subjectName = document.getElementById('subjectTitle').innerText;
+    } else if (isCSP) {
+        //only the select course tab can give us the subject through the subject dropdown
+        if (window.location.href.includes("SelectCourseTab")) {
+            let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
+            subjectName = subjectDropdown.options[subjectDropdown.selectedIndex].text;
+            //if the user has not selected a subject yet
+            if (subjectName.includes("Select a Subject")) {
+                subjectName = "";
+            }
+        }
+    }
+    return subjectName.trim();
+}
+
+
+/**
+ * Extracts and returns the course name from a given instructor element, accounting for different page structures.
+ *
+ * @param {HTMLElement} instructorElement - The element associated with the course instructor.
+ * @param {HTMLElement} elementWithCourseName - Optionally null. The element containing the course's name.
+ * @return {string} The extracted course name, or an empty string if not found.
+ */
+function extractCourseName(instructorElement, elementWithCourseName) {
+    if (isSOC || isOldSOC || isWebReg) {
+        let parentDiv = findParentDiv(instructorElement, "courseData")
+        if (parentDiv) {
+            return parentDiv.textContent.trim();
+        }
+    } else if (isCSP) {
+        //caution: CSP loads instructor elements across all in-site tabs on page load under the SelectCourseTab url,
+        //so avoid logic that assumes the current tab is anything other than SelectCourseTab
+        if (window.location.href.includes("SelectCourseTab")) {
+            if (elementWithCourseName && elementWithCourseName.querySelector('.title')) {
+                return elementWithCourseName.querySelector('.title').textContent.trim();
+            }
+        }
+
+        //select course tab logic
+        let courseElement = instructorElement.closest('.dijitTitlePane');
+        if (courseElement) {
+            let titleElement = courseElement.querySelector('.title');
+            if (titleElement) {
+                return titleElement.textContent.trim();
+            }
+        }
+
+        //build schedule/saved schedule tab logic
+        let parentRow = instructorElement.parentElement;
+        if (parentRow) {
+            let courseTitleElement = parentRow.querySelector('.course-title');
+            if (courseTitleElement) {
+                return courseTitleElement.textContent.trim();
+            }
+        }
+    }
+    return "";
+}
+
+
+/**
+ * Extracts instructor names from the instructor element
+ * If the current page is CSP, the instructor names are formatted as "last, first, last, etc" (they are random).
+ * If the current page is not CSP, the instructor names are formatted as "fullProfName; fullProfName".
+ *
+ * @param {HTMLElement} instructorElement - The instructor element to extract names from.
+ */
+function extractInstructorNames(instructorElement) {
+    let instructorNames = [];
+    if (isSOC || isOldSOC || isWebReg) {
+        instructorNames = instructorElement.textContent.trim().split(";").map(name => name.trim());
+        for (let i = 0; i < instructorNames.length; i++) {
+            let currLastFirst = instructorNames[i].split(",").map(name => name.trim());
+            for (let j = 0; j < currLastFirst.length; j++) {
+                if (currLastFirst[j].includes(" ")) { //has middle initial
+                    currLastFirst[j] = currLastFirst[j].split(" ")[0].trim();
+                }
+            }
+            instructorNames[i] = currLastFirst.join(" ");
+        }
+    } else if (isCSP) {
+        instructorNames = instructorElement.textContent.trim().split(",").map(name => name.trim());
+        for (let i = 0; i < instructorNames.length; i++) {
+            if (instructorNames[i].includes(" ")) { //has middle initial
+                instructorNames[i] = instructorNames[i].split(" ")[0].trim();
+            }
+        }
+    }
+    return instructorNames;
+}
+
+
+/**
+ * Initializes and appends a pulsating loading bubble to a specified element.
+ *
+ * @param {HTMLElement} instructorElement - The element to append the loading bubble to.
+ * @returns {HTMLElement} The created loading bubble element.
+ */
+function initializeLoadingBubble(instructorElement) {
+    let ratingBubble = document.createElement('div');
+    ratingBubble.className = 'jmp-rating-bubble';
+    ratingBubble.textContent = '';
+    if (isCSP) {
+        ratingBubble.style.fontSize = "12px";
+    }
+    else {
+        ratingBubble.style.fontSize = `${getDynamicFontSize(instructorElement.textContent)}px`;
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulsate {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.4); opacity: 0.8; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .pulsating {
+          animation: pulsate 2s infinite ease-in-out;
+        }
+    `;
+    document.head.appendChild(style);
+    ratingBubble.classList.add('pulsating');
+
+    ratingBubble.addEventListener("mousedown", () => {
+        ratingBubble.style.transform = "translateY(2px)";
+    });
+    ratingBubble.addEventListener("mouseup", () => {
+        ratingBubble.style.transform = "translateY(-2px)";
+    });
+
+    instructorElement.appendChild(ratingBubble);
+    ratingBubble.classList.remove('pulsating');
+    return ratingBubble;
+}
+
+
+/**
+ * Converts a rating bubble element to display an error message and details on interaction.
+ *
+ * @param {HTMLElement} ratingBubbleElem - The element to convert into an error display.
+ * @param {Error} error - The error to display details for.
+ */
+function convertToErrorBubble(ratingBubbleElem, error) {
+    ratingBubbleElem.textContent = "Error";
+    const errorMsgPopupElem = document.createElement("div");
+    errorMsgPopupElem.textContent = error.message;
+    errorMsgPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
+    errorMsgPopupElem.className = "jmp-error-message-popup";
+
+    ratingBubbleElem.appendChild(errorMsgPopupElem);
+
+    ratingBubbleElem.addEventListener("mouseover", () => {
+        ratingBubbleElem.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+        errorMsgPopupElem.style.display = "block";
+    });
+    ratingBubbleElem.addEventListener("mouseleave", () => {
+        ratingBubbleElem.style.boxShadow = "none";
+        errorMsgPopupElem.style.display = "none";
+    });
+
+    ratingBubbleElem.onclick = function () {
+        let htmlContent = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Error Stack</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        pre {
+                            background-color: #f4f4f4;
+                            padding: 10px;
+                            border-radius: 5px;
+                            white-space: pre-wrap; 
+                            word-wrap: break-word;
+                            overflow-wrap: break-word; 
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h2>Error Stack: </h2>
+                    <h4> (Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub) </h4>
+                    <pre>${error.stack}</pre>
+               
+                </body>
+                </html>
+            `;
+        let blob = new Blob([htmlContent], {type: 'text/html'});
+        let url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    };
+}
+
+
+/**
+ * Populates a rating bubble element with instructor rating information.
+ *
+ * @param {HTMLElement} instructorElem - The parent instructor element of the given rating bubble.
+ * @param {HTMLElement} ratingBubbleElem - The rating bubble element to populate.
+ * @param {Object} response - The response object containing instructor rating data.
+ * @param {string} profText - The text used to identify the professor.
+ */
+function populateRatingBubble(instructorElem, ratingBubbleElem, response, profText) {
+    const cardProfName = document.createElement("div");
+    const cardProfDept = document.createElement("div");
+    const cardRatingElem = document.createElement("div");
+    const cardReviewsElem = document.createElement("div");
+    const reviewsLink = document.createElement("a");
+    const cardDifficultyElem = document.createElement("div");
+    const cardWouldTakeAgainElem = document.createElement("div");
+    const cardWarningBubbleElem = document.createElement("div");
+    const cardWarningMessagePopupElem = document.createElement("div");
+    const ratingBubbleWarningBubbleElem = document.createElement("div");
+    const clickToSearchPopupElem = document.createElement("div");
+    const box = document.createElement("div");
+    const details = document.createElement("div");
+    const popupCard = document.createElement('div');
+
+    popupCard.className = "jmp-popup-card";
+    cardProfName.className = "jmp-card-prof-name";
+    cardProfDept.className = "jmp-card-prof-dept";
+    cardRatingElem.className = "jmp-card-rating-elem";
+    cardReviewsElem.className = "jmp-card-reviews-elem";
+    cardDifficultyElem.className = "jmp-card-difficulty-elem";
+    cardWouldTakeAgainElem.className = "jmp-card-would-take-again-elem";
+    cardWarningBubbleElem.className = "jmp-card-warning-bubble";
+    cardWarningMessagePopupElem.className = "jmp-card-warning-message-popup";
+    ratingBubbleWarningBubbleElem.className = "jmp-rating-bubble-warning-bubble";
+    clickToSearchPopupElem.className = "jmp-click-to-search-popup";
+    box.className = "jmp-box";
+    details.className = "jmp-details";
+
+    if (!response || !response.data || profText === "") {
+        ratingBubbleElem.textContent = 'N/A';
+    } else if (response.data.numRatings === 0) {
+        ratingBubbleElem.textContent = 'X.X';
+    } else {
+        ratingBubbleElem.textContent = response.data.avgRating.toFixed(1);
+    }
+    cardRatingElem.textContent = ratingBubbleElem.textContent;
+
+    if (ratingBubbleElem.textContent.trim() !== "N/A") {
+        let ratingNum = parseFloat(ratingBubbleElem.textContent);
+        let ratingColor = ratingBubbleElem.textContent === "X.X" ? "lightgray" : getRatingColor(ratingNum);
+        ratingBubbleElem.style.backgroundColor = ratingColor;
+        cardRatingElem.style.backgroundColor = ratingColor;
+
+        cardProfName.textContent = response.data.firstName + " " + response.data.lastName;
+        cardProfDept.textContent = response.data.department;
+        reviewsLink.textContent = response.data.numRatings + " review(s)";
+        reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
+        reviewsLink.target = "_blank";
+        cardDifficultyElem.textContent = "Level Of Difficulty: " + (response.data.numRatings > 0 ? response.data.avgDifficulty : "N/A");
+        cardWouldTakeAgainElem.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent !== -1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
+
+        ratingBubbleElem.onclick = function () {
+            window.open(reviewsLink.href, '_blank');
+        };
+
+        //rating bubble onHover listeners to display popup card
+        ratingBubbleElem.addEventListener("mouseover", function (event) {
+            if (event.currentTarget === event.target) {
+                if (window.location.href.includes("/csp/")) {
+                    document.body.appendChild(popupCard);
+                    popupCard.style.display = 'block';
+                    let rect = ratingBubbleElem.getBoundingClientRect();
+                    popupCard.style.left = (rect.left - popupCard.offsetWidth) + 'px';
+                    popupCard.style.top = rect.top + 'px';
+                } else {
+                    popupCard.style.display = "inline-block";
+                    popupCard.style.left = (ratingBubbleElem.offsetLeft - popupCard.offsetWidth) + 'px';
+                }
+                ratingBubbleWarningBubbleElem.style.display = "none";
+                ratingBubbleElem.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+            }
+        });
+        ratingBubbleElem.addEventListener("mouseleave", () => {
+            popupCard.style.display = "none";
+            ratingBubbleElem.style.boxShadow = "none";
+            ratingBubbleWarningBubbleElem.style.display = "flex";
+        });
+
+        //popup card onHover listeners
+        popupCard.addEventListener("mouseover", () => {
+            popupCard.style.display = "inline-block";
+            ratingBubbleElem.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+            ratingBubbleWarningBubbleElem.style.display = "none";
+        });
+        popupCard.addEventListener("mouseleave", () => {
+            popupCard.style.display = "none";
+            ratingBubbleElem.style.boxShadow = "none";
+            ratingBubbleWarningBubbleElem.style.display = "flex";
+        });
+
+        if (!profText.includes(" ")) {  //add bubble/card warnings if prof first name is unavailable
+            popupCard.appendChild(cardWarningBubbleElem);
+            popupCard.appendChild(cardWarningMessagePopupElem);
+            cardWarningBubbleElem.textContent = "?";
+            cardWarningMessagePopupElem.textContent = "Professor may be inaccurate: only last name provided";
+
+            cardWarningBubbleElem.addEventListener("mouseover", () => {
+                cardWarningMessagePopupElem.style.display = "block";
+            });
+            cardWarningBubbleElem.addEventListener("mouseleave", () => {
+                cardWarningMessagePopupElem.style.display = "none";
+            });
+
+            ratingBubbleElem.appendChild(ratingBubbleWarningBubbleElem);
+            ratingBubbleWarningBubbleElem.textContent = "?";
+            ratingBubbleElem.style.position = "relative";
+        }
+    } else if (ratingBubbleElem.textContent === "N/A") {
+        //if no data available, add a click to search popup
+        ratingBubbleElem.appendChild(clickToSearchPopupElem);
+        clickToSearchPopupElem.textContent = "Click to search";
+        clickToSearchPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
+
+        if (profText === "") {
+            ratingBubbleElem.onclick = function () {
+                window.open("https://www.google.com/search?q=🗿", '_blank');
+            };
+        } else {
+            ratingBubbleElem.onclick = function () {
+                window.open("https://www.google.com/search?q=" + profText + "+rutgers+rate+my+professor", '_blank');
+            };
+        }
+        ratingBubbleElem.addEventListener("mouseover", () => {
+            ratingBubbleElem.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
+            clickToSearchPopupElem.style.display = "block";
+        });
+        ratingBubbleElem.addEventListener("mouseleave", () => {
+            ratingBubbleElem.style.boxShadow = "none";
+            clickToSearchPopupElem.style.display = "none";
+        });
+    }
+    ratingBubbleElem.classList.remove('pulsating');
+    instructorElem.appendChild(popupCard);
+    popupCard.appendChild(cardProfName);
+    popupCard.appendChild(cardProfDept);
+    popupCard.appendChild(box);
+    box.appendChild(cardRatingElem);
+    box.appendChild(cardReviewsElem);
+    cardReviewsElem.appendChild(reviewsLink);
+    popupCard.appendChild(details);
+    details.appendChild(cardDifficultyElem);
+    details.appendChild(cardWouldTakeAgainElem);
+}
+
+
+/**
+ * Asynchronously fetches data for a specified professor with filtered results based on a match text.
+ *
+ * @param {string} profName The name of the professor.
+ * @param {string} matchText The text to match to the professor's department for filtering results.
+ * @returns {Promise<Object>} A promise that resolves with the fetched data or rejects with an error.
+ */
 async function fetchProfStats(profName, matchText) {
     return await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
@@ -141,6 +558,15 @@ async function fetchProfStats(profName, matchText) {
 }
 
 
+/**
+ * Finds the first parent div of a given element with a specific class name and then searches for a preceding sibling
+ * with the class name "metadata hidden". Returns the found sibling or null if not found.
+ * Used to find the element with the course name in SOC, WebReg, and OldSOC
+ *
+ * @param {HTMLElement} element - The starting element to search from.
+ * @param {string} className - The class name to match for the parent div.
+ * @returns {HTMLElement|null} The preceding sibling with class "metadata hidden" or null if not found.
+ */
 function findParentDiv(element, className) {
     className = className.toLowerCase();
     while (element && element.parentNode) {
@@ -158,381 +584,44 @@ function findParentDiv(element, className) {
 }
 
 
+/**
+ * Calculates a dynamic font size based on the length of the given text.
+ * The font size decreases with longer text lengths to accommodate more content.
+ *
+ * @param {string} text - The text for which to calculate the font size.
+ * @param {number} [baseSize=17] - The base font size to start from.
+ * @param {number} [stepSize=6] - The amount by which to decrease the font size for each step over the threshold.
+ * @param {number} [stepThreshold=12] - The text length threshold at which to start decreasing the font size.
+ * @returns {number} The calculated font size, with a minimum value of 10.
+ */
+function getDynamicFontSize(text, baseSize = 17, stepSize = 6, stepThreshold = 12) {
+    const length = text.length;
+    let fontSize = baseSize;
+    if (length > stepThreshold) {
+        const stepsOverThreshold = Math.floor((length - stepThreshold) / stepThreshold);
+        fontSize -= stepsOverThreshold * stepSize;
+    }
+    fontSize = Math.max(fontSize, 10);
+    return fontSize;
+}
+
+
+/**
+ * Returns the color code associated with a specific rating.
+ *
+ * @param {number} rating - The rating value to evaluate.
+ * @returns {string} The hex code or name of the color corresponding to the rating, defaults to "lightgray" if no match found.
+ */
 function getRatingColor(rating) {
-    let color = "";
-    if (rating < 1.0) {
-        color = "lightcoral";
-    } else if (rating < 2.0) {
-        color = "#F8917D"
-    } else if (rating < 2.5) {
-        color = "lightsalmon";
-    } else if (rating < 3.0) {
-        color = "#F7C684";
-    } else if (rating < 3.5) {
-        color = "khaki";
-    } else if (rating < 4.0) {
-        color = "#baee90";
-    } else if (rating < 4.5) {
-        color = "#98FB98";
-    } else if (rating <= 5.0) {
-        color = "#6ad46a";
-    }
-    return color;
-}
-
-function sleep(milliseconds) {
-    const date = Date.now();
-    let currentDate = null;
-    do {
-        currentDate = Date.now();
-    } while (currentDate - date < milliseconds);
-}
-
-function addRatingBubble(instructorElem, profText, searchSubText, course, totalNumProfs) {
-    instructorElem.style.marginRight = "13px";
-    const ratingElement = document.createElement('div');
-
-    ratingElement.className = 'ratingText';
-    ratingElement.id = 'rating';
-    ratingElement.textContent = '';
-    ratingElement.style.fontSize = '17px';
-    ratingElement.style.display = 'inline-block';
-    ratingElement.style.padding = '8px';
-    ratingElement.style.position = 'relative';
-    ratingElement.style.backgroundColor = 'lightgray';
-    ratingElement.style.borderRadius = '10px';
-    ratingElement.style.marginLeft = "15px";
-    ratingElement.style.marginRight = "1px";
-    ratingElement.style.fontWeight = "bold";
-    ratingElement.style.transition = "box-shadow 0.3s ease, transform 0.1s ease";
-    ratingElement.style.cursor = "pointer";
-
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulsate {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.4); opacity: 0.8; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .pulsating {
-          animation: pulsate 2s infinite ease-in-out;
-        }
-        `;
-    document.head.appendChild(style);
-    ratingElement.classList.add('pulsating');
-    instructorElem.appendChild(ratingElement);
-
-    ratingElement.addEventListener("mousedown", () => {
-        ratingElement.style.transform = "translateY(2px)";
-    });
-    ratingElement.addEventListener("mouseup", () => {
-        ratingElement.style.transform = "translateY(-2px)";
-    });
-    if (window.location.href.includes("/csp/")) {
-        ratingElement.style.marginTop = "15px";
-        ratingElement.style.marginRight = "9px";
-    }
-
-    if (totalNumProfs === 1) {
-        ratingElement.style.marginLeft = "6px";
-    } else {
-        ratingElement.style.marginLeft = "8px";
-        ratingElement.style.fontSize = "14px";
-    }
-    if (instructorElem.textContent.trim().length > 25) {
-        ratingElement.style.fontSize = "12px";
-    }
-    if (instructorElem.textContent.trim().length >= 29) {
-        ratingElement.style.fontSize = "10px";
-    }
-    if (window.location.href.includes("/csp/")) {
-        ratingElement.style.marginLeft = "1px";
-    }
-
-    const cardProfName = document.createElement("div");
-    const cardProfDept = document.createElement("div");
-    const cardRatingElem = document.createElement("div");
-    const cardReviewsElem = document.createElement("div");
-    const reviewsLink = document.createElement("a");
-    const cardDifficultyElem = document.createElement("div");
-    const cardWTAelem = document.createElement("div");
-    const cardInaccuracyWarningBubble = document.createElement("div");
-    const warningMessageElem = document.createElement("div");
-    const ratingElemWarningBubble = document.createElement("div");
-    const searchPopupElem = document.createElement("div");
-    const box = document.createElement("div");
-    const details = document.createElement("div");
-    const popupCard = document.createElement('div');
-
-    popupCard.style.display = "none";
-    popupCard.style.backgroundColor = "white";
-    popupCard.style.padding = "10px";
-    popupCard.style.borderRadius = "10px";
-    popupCard.style.whiteSpace = "pre-wrap";
-    popupCard.style.zIndex = "100000000";
-    popupCard.style.border = "2px solid #d30f32";
-    popupCard.style.width = '200px';
-    popupCard.style.boxSizing = "border-box";
-    popupCard.style.position = 'absolute';
-
-    cardProfName.style.fontSize = "18px";
-    cardProfName.style.fontWeight = "bold";
-    cardProfName.style.marginBottom = "5px";
-
-    cardProfDept.style.fontSize = "14px";
-    cardProfDept.style.color = "#555";
-    cardProfDept.style.marginBottom = "10px";
-
-    cardRatingElem.style.borderRadius = "8px";
-    cardRatingElem.style.color = "black";
-    cardRatingElem.style.fontSize = "14px";
-    cardRatingElem.style.padding = "8px";
-    cardRatingElem.style.fontWeight = "bold";
-    cardRatingElem.style.marginRight = "10px";
-
-    cardReviewsElem.style.fontSize = "14px";
-    cardReviewsElem.style.color = "#555";
-
-    cardDifficultyElem.style.marginBottom = "5px";
-
-    box.style.display = "flex";
-    box.style.alignItems = "center";
-    box.style.marginBottom = "10px";
-
-    details.style.marginTop = "10px";
-    details.style.fontSize = "14px";
-    details.style.color = "#555";
-
-    fetchProfStats(profText, searchSubText + " " + course)
-        .then(response => {
-
-            if (!response.data || profText === "") {
-                ratingElement.textContent = 'N/A';
-            } else if (response.data.numRatings === 0) {
-                ratingElement.textContent = 'X.X';
-            } else {
-                ratingElement.textContent = response.data.avgRating.toFixed(1);
-            }
-            cardRatingElem.textContent = ratingElement.textContent;
-
-            if (ratingElement.textContent.trim() !== "N/A") {
-                let ratingNum = parseFloat(ratingElement.textContent);
-                let ratingColor = ratingElement.textContent === "X.X" ? "lightgray" : getRatingColor(ratingNum);
-                ratingElement.style.backgroundColor = ratingColor;
-                cardRatingElem.style.backgroundColor = ratingColor;
-
-
-                let profName = response.data.firstName + " " + response.data.lastName;
-                profName = profName.toLowerCase().replace(/\b[a-z]/g, function (letter) {
-                    return letter.toUpperCase();
-                });
-                cardProfName.textContent = profName;
-                cardProfDept.textContent = response.data.department;
-                reviewsLink.textContent = response.data.numRatings + " review(s)";
-                reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
-                reviewsLink.target = "_blank";
-                cardDifficultyElem.textContent = "Level Of Difficulty: " + (response.data.numRatings > 0 ? response.data.avgDifficulty : "N/A");
-                cardWTAelem.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent !== -1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
-
-                ratingElement.onclick = function () {
-                    window.open(reviewsLink.href, '_blank');
-                };
-
-                ratingElement.addEventListener("mouseover", function (event) {
-                    if (event.currentTarget === event.target) {
-                        if (window.location.href.includes("/csp/")) {
-                            document.body.appendChild(popupCard);
-                            popupCard.style.display = 'block';
-                            let rect = ratingElement.getBoundingClientRect();
-                            popupCard.style.left = (rect.left - popupCard.offsetWidth) + 'px';
-                            popupCard.style.top = rect.top + 'px';
-                        } else {
-                            popupCard.style.display = "inline-block";
-                            popupCard.style.left = (ratingElement.offsetLeft - popupCard.offsetWidth) + 'px';
-                        }
-                        ratingElemWarningBubble.style.display = "none";
-                        ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-                    }
-                });
-                ratingElement.addEventListener("mouseleave", () => {
-                    popupCard.style.display = "none";
-                    ratingElement.style.boxShadow = "none";
-                    ratingElemWarningBubble.style.display = "flex";
-                });
-
-                popupCard.addEventListener("mouseover", () => {
-                    popupCard.style.display = "inline-block";
-                    ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-                    ratingElemWarningBubble.style.display = "none";
-                });
-                popupCard.addEventListener("mouseleave", () => {
-                    popupCard.style.display = "none";
-                    ratingElement.style.boxShadow = "none";
-                    ratingElemWarningBubble.style.display = "flex";
-                });
-
-                if (!profText.includes(",")) {         //add warnings if prof first name is unavailable
-                    popupCard.appendChild(cardInaccuracyWarningBubble);
-                    popupCard.appendChild(warningMessageElem);
-                    cardInaccuracyWarningBubble.textContent = "?";
-                    warningMessageElem.textContent = "Professor may be inaccurate: only last name provided";
-
-                    cardInaccuracyWarningBubble.addEventListener("mouseover", () => {
-                        warningMessageElem.style.display = "block";
-                    });
-                    cardInaccuracyWarningBubble.addEventListener("mouseleave", () => {
-                        warningMessageElem.style.display = "none";
-                    });
-
-                    cardInaccuracyWarningBubble.style.position = "absolute";
-                    cardInaccuracyWarningBubble.style.top = "-8px";
-                    cardInaccuracyWarningBubble.style.right = "-8px";
-                    cardInaccuracyWarningBubble.style.right = "185px";
-                    cardInaccuracyWarningBubble.style.backgroundColor = "lightgray";
-                    cardInaccuracyWarningBubble.style.borderRadius = "50%";
-                    cardInaccuracyWarningBubble.style.width = "25px";
-                    cardInaccuracyWarningBubble.style.height = "25px";
-                    cardInaccuracyWarningBubble.style.display = "flex";
-                    cardInaccuracyWarningBubble.style.fontSize = "14px";
-                    cardInaccuracyWarningBubble.style.justifyContent = "center";
-                    cardInaccuracyWarningBubble.style.alignItems = "center";
-                    cardInaccuracyWarningBubble.style.cursor = "pointer";
-
-                    warningMessageElem.style.display = "none";
-                    warningMessageElem.style.position = "absolute";
-                    warningMessageElem.style.backgroundColor = "lightgray";
-                    warningMessageElem.style.fontSize = "12px";
-                    warningMessageElem.style.fontWeight = "bold";
-                    warningMessageElem.style.padding = "5px";
-                    warningMessageElem.style.borderRadius = "5px";
-                    warningMessageElem.style.top = "-40px";
-                    warningMessageElem.style.right = "7px";
-                    warningMessageElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-
-                    ratingElement.appendChild(ratingElemWarningBubble);
-                    ratingElemWarningBubble.textContent = "?";
-
-                    ratingElement.style.position = "relative";
-                    ratingElemWarningBubble.style.position = "absolute";
-                    ratingElemWarningBubble.style.top = "-11px";
-                    ratingElemWarningBubble.style.right = "-10px";
-                    ratingElemWarningBubble.style.backgroundColor = "lightgray";
-                    ratingElemWarningBubble.style.borderRadius = "50%";
-                    ratingElemWarningBubble.style.width = "20px";
-                    ratingElemWarningBubble.style.height = "20px";
-                    ratingElemWarningBubble.style.display = "flex";
-                    ratingElemWarningBubble.style.fontSize = "10px";
-                    ratingElemWarningBubble.style.justifyContent = "center";
-                    ratingElemWarningBubble.style.alignItems = "center";
-                }
-            } else if (ratingElement.textContent === "N/A") {
-                ratingElement.appendChild(searchPopupElem);
-                searchPopupElem.textContent = "Click to search";
-                searchPopupElem.style.display = "none";
-                searchPopupElem.style.position = "absolute";
-                searchPopupElem.style.backgroundColor = "lightgray";
-                searchPopupElem.style.fontSize = "12px";
-                searchPopupElem.style.padding = "5px";
-                searchPopupElem.style.borderRadius = "5px";
-                searchPopupElem.style.top = "-25px";
-                searchPopupElem.style.right = "30px";
-                searchPopupElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-
-                if (profText === "") {
-                    ratingElement.onclick = function () {
-                        window.open("https://www.google.com/search?q=🗿", '_blank');
-                    };
-                } else {
-                    ratingElement.onclick = function () {
-                        window.open("https://www.google.com/search?q=" + profText + "+rutgers+rate+my+professor", '_blank');
-                    };
-                }
-                ratingElement.addEventListener("mouseover", () => {
-                    ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-                    searchPopupElem.style.display = "block";
-                });
-                ratingElement.addEventListener("mouseleave", () => {
-                    ratingElement.style.boxShadow = "none";
-                    searchPopupElem.style.display = "none";
-                });
-            }
-        })
-        .catch(error => {
-            ratingElement.textContent = "Error";
-            ratingElement.appendChild(searchPopupElem);
-            searchPopupElem.textContent = error.message;
-            searchPopupElem.style.display = "none";
-
-            searchPopupElem.style.maxWidth = "250px";
-            searchPopupElem.style.overflow = "hidden";
-            searchPopupElem.style.textOverflow = "ellipsis";
-            searchPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
-
-            searchPopupElem.style.position = "absolute";
-            searchPopupElem.style.backgroundColor = "lightgray";
-            searchPopupElem.style.fontSize = "12px";
-            searchPopupElem.style.padding = "5px";
-            searchPopupElem.style.borderRadius = "5px";
-            searchPopupElem.style.top = "-25px";
-            searchPopupElem.style.right = "30px";
-            searchPopupElem.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-
-            ratingElement.addEventListener("mouseover", () => {
-                ratingElement.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.3)";
-                searchPopupElem.style.display = "block";
-            });
-            ratingElement.addEventListener("mouseleave", () => {
-                ratingElement.style.boxShadow = "none";
-                searchPopupElem.style.display = "none";
-            });
-
-            ratingElement.onclick = function () {
-                let htmlContent = `
-                    <!DOCTYPE html>
-                    <html lang="en">
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Error Stack</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; padding: 20px; }
-                            pre {
-                                background-color: #f4f4f4;
-                                padding: 10px;
-                                border-radius: 5px;
-                                white-space: pre-wrap; 
-                                word-wrap: break-word;
-                                overflow-wrap: break-word; 
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h2>Error Stack: </h2>
-                        <h4> (Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub) </h4>
-                        <pre>${error.stack}</pre>
-                   
-                    </body>
-                    </html>
-                `;
-
-                let blob = new Blob([htmlContent], {type: 'text/html'});
-                let url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-            };
-
-        })
-        .finally(() => {
-            ratingElement.classList.remove('pulsating');
-        });
-
-    instructorElem.appendChild(popupCard);
-    popupCard.appendChild(cardProfName);
-    popupCard.appendChild(cardProfDept);
-    popupCard.appendChild(box);
-    box.appendChild(cardRatingElem);
-    box.appendChild(cardReviewsElem);
-    cardReviewsElem.appendChild(reviewsLink);
-    popupCard.appendChild(details);
-    details.appendChild(cardDifficultyElem);
-    details.appendChild(cardWTAelem);
+    const ratingColors = [
+        {max: 1.0, color: "lightcoral"},
+        {max: 2.0, color: "#F8917D"},
+        {max: 2.5, color: "lightsalmon"},
+        {max: 3.0, color: "#F7C684"},
+        {max: 3.5, color: "khaki"},
+        {max: 4.0, color: "#baee90"},
+        {max: 4.5, color: "#98FB98"},
+        {max: 5.0, color: "#6ad46a"}
+    ];
+    return ratingColors.find(rc => rating <= rc.max)?.color || "lightgray"; //Default to lightgray if no match
 }

@@ -1,6 +1,3 @@
-console.log("popup.js loaded");
-
-
 document.getElementById('reset-cache').addEventListener('click', async function () {
     this.classList.add('clicked');
     let response = await chrome.runtime.sendMessage({ action: "resetCache" });

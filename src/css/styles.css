@@ -1,0 +1,139 @@
+.jmp-popup-card {
+    display: none;
+    background-color: white;
+    padding: 10px;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    z-index: 100000000;
+    border: 2px solid #d30f32;
+    width: 200px;
+    box-sizing: border-box;
+    position: absolute;
+}
+
+.jmp-card-prof-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.jmp-card-reviews-elem {
+    font-size: 14px;
+    color: #555;
+}
+
+.jmp-card-prof-dept,
+.jmp-details {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.jmp-card-rating-elem {
+    border-radius: 8px;
+    color: black;
+    font-size: 14px;
+    padding: 8px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.jmp-card-would-take-again-elem {
+    margin-bottom: -10px;
+}
+
+.jmp-card-difficulty-elem {
+    margin-bottom: 7px;
+}
+
+.jmp-box {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.jmp-card-warning-bubble {
+    position: absolute;
+    top: -8px;
+    right: 185px;
+    background-color: lightgray;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.jmp-card-warning-message-popup {
+    display: none;
+    position: absolute;
+    background-color: lightgray;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 5px;
+    border-radius: 5px;
+    top: -40px;
+    right: 7px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.jmp-rating-bubble-warning-bubble {
+    position: absolute;
+    top: -11px;
+    right: -10px;
+    background-color: lightgray;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+}
+
+.jmp-click-to-search-popup {
+    display: none;
+    position: absolute;
+    background-color: lightgray;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 5px;
+    border-radius: 5px;
+    top: -25px;
+    right: 30px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.jmp-error-msg-popup {
+    display: none;
+    white-space: nowrap;
+    position: absolute;
+    background-color: lightgray;
+    font-size: 12px;
+    padding: 5px;
+    border-radius: 5px;
+    top: -25px;
+    right: 30px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.jmp-rating-bubble {
+    display: inline-block;
+    padding: 8px;
+    position: relative;
+    background-color: lightgray;
+    border-radius: 10px;
+    margin-left: 12px;
+    margin-top: 15px;
+    font-weight: bold;
+    transition: box-shadow 0.3s ease, transform 0.1s ease;
+    cursor: pointer;
+}
+
