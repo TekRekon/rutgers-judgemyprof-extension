@@ -94,7 +94,7 @@
     font-size: 10px;
 }
 
-.jmp-click-to-search-popup {
+.jmp-error-msg-popup {
     display: none;
     position: absolute;
     background-color: lightgray;
@@ -109,11 +109,11 @@
     text-overflow: ellipsis;
 }
 
-.jmp-error-msg-popup {
+.jmp-click-to-search-popup {
     display: none;
-    white-space: nowrap;
     position: absolute;
     background-color: lightgray;
+    white-space: nowrap;
     font-size: 12px;
     padding: 5px;
     border-radius: 5px;
@@ -136,4 +136,3 @@
     transition: box-shadow 0.3s ease, transform 0.1s ease;
     cursor: pointer;
 }
-

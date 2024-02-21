@@ -325,12 +325,11 @@ function initializeLoadingBubble(instructorElement) {
  * @param {Error} error - The error to display details for.
  */
 function convertToErrorBubble(ratingBubbleElem, error) {
-    ratingBubbleElem.textContent = "Error";
     const errorMsgPopupElem = document.createElement("div");
+    errorMsgPopupElem.className = "jmp-error-msg-popup";
     errorMsgPopupElem.textContent = error.message;
     errorMsgPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
-    errorMsgPopupElem.className = "jmp-error-message-popup";
-
+    ratingBubbleElem.textContent = "Error";
     ratingBubbleElem.appendChild(errorMsgPopupElem);
 
     ratingBubbleElem.addEventListener("mouseover", () => {
