@@ -330,6 +330,7 @@ function convertToErrorBubble(ratingBubbleElem, error) {
     errorMsgPopupElem.textContent = error.message;
     errorMsgPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
     ratingBubbleElem.textContent = "Error";
+    ratingBubbleElem.style.backgroundColor = "lightgray";
     ratingBubbleElem.appendChild(errorMsgPopupElem);
 
     ratingBubbleElem.addEventListener("mouseover", () => {
@@ -363,6 +364,7 @@ function convertToErrorBubble(ratingBubbleElem, error) {
                 </head>
                 <body>
                     <h2>Error Stack: </h2>
+                    <h4> (Try clearing extension cache to resolve any problems by clicking on the extension's icon) </h4>
                     <h4> (Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub) </h4>
                     <pre>${error.stack}</pre>
                
