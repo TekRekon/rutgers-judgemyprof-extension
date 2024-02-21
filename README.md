@@ -60,6 +60,11 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 
 
 
+## Issues
+- If you run into any problems, try clearing extension cache by clicking on the extension icon and clicking "Reset Cache"
+
+
+
 ## Contact
 
 - If you have any questions or concerns, feel free to contact us: techideas4me@gmail.com
