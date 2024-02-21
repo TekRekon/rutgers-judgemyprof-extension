@@ -20,6 +20,8 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 
 - **Professor Matching Algorithm**: Matches professor departments with class and subject names for more accurate results
 
+- **Easy and Automatic Installation**: Only runs when you access a Rutgers course registration page
+
 
 
 ## Installation 
@@ -55,12 +57,6 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 2. **Browse Courses**: Explore course offerings and view class details.
 
 3. **Instant Ratings**: Professor ratings and reviews will be displayed next to their names
-
-
-
-## Future
-
-- Add support for Firefox and Microsoft Edge
 
 
 
