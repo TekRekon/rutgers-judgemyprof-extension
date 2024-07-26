@@ -107,21 +107,22 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             }
 
             //if both names given and data is available or only last name given with data available or unavailable
-            if ((response && response.data) || !currProfSearch.includes(" ")) {
+            if ((response && response.data) || !currProfSearch.includes(" ") || instructorNames.length % 2 === 0) {
                 if (currProfSearch.includes(" ")) {
                     initializedBubbles.add(instructorNames[i + 1]);
                 }
                 populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
+                ratingBubbleElem.classList.remove('pulsating');
                 i += 1;
             }
             //if both names given and data is unavailable
             else {
                 try {
                     response = await fetchProfStats(instructorNames[i], matchText);
-                    populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorNames[i]);
+                    populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
+                    ratingBubbleElem.classList.remove('pulsating');
                 } catch (error) {
                     convertToErrorBubble(ratingBubbleElem, error);
-                    continue;
                 }
             }
         }
@@ -136,6 +137,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             fetchProfStats(instructorName, matchText)
                 .then(response => {
                     populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorName);
+                    ratingBubbleElem.classList.remove('pulsating');
                 })
                 .catch(error => {
                     convertToErrorBubble(ratingBubbleElem, error);
@@ -255,20 +257,20 @@ function extractInstructorNames(instructorElement) {
         instructorNames = instructorElement.textContent.trim().split(";").map(name => name.trim());
         for (let i = 0; i < instructorNames.length; i++) {
             let currLastFirst = instructorNames[i].split(",").map(name => name.trim());
-            for (let j = 0; j < currLastFirst.length; j++) {
-                if (currLastFirst[j].includes(" ")) { //has middle initial
-                    currLastFirst[j] = currLastFirst[j].split(" ")[0].trim();
-                }
-            }
+            // for (let j = 0; j < currLastFirst.length; j++) {
+            //     if (currLastFirst[j].includes(" ")) { //has middle initial
+            //         currLastFirst[j] = currLastFirst[j].split(" ")[1].trim();
+            //     }
+            // }
             instructorNames[i] = currLastFirst.join(" ");
         }
     } else if (isCSP) {
         instructorNames = instructorElement.textContent.trim().split(",").map(name => name.trim());
-        for (let i = 0; i < instructorNames.length; i++) {
-            if (instructorNames[i].includes(" ")) { //has middle initial
-                instructorNames[i] = instructorNames[i].split(" ")[0].trim();
-            }
-        }
+        // for (let i = 0; i < instructorNames.length; i++) {
+        //     if (instructorNames[i].includes(" ")) { //has middle initial
+        //         instructorNames[i] = instructorNames[i].split(" ")[1].trim();
+        //     }
+        // }
     }
     return instructorNames;
 }
@@ -313,7 +315,6 @@ function initializeLoadingBubble(instructorElement) {
     });
 
     instructorElement.appendChild(ratingBubble);
-    ratingBubble.classList.remove('pulsating');
     return ratingBubble;
 }
 
@@ -375,6 +376,7 @@ function convertToErrorBubble(ratingBubbleElem, error) {
         let url = URL.createObjectURL(blob);
         window.open(url, '_blank');
     };
+    ratingBubbleElem.classList.remove('pulsating');
 }
 
 
@@ -498,7 +500,12 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
     } else if (ratingBubbleElem.textContent === "N/A") {
         //if no data available, add a click to search popup
         ratingBubbleElem.appendChild(clickToSearchPopupElem);
-        clickToSearchPopupElem.textContent = "Click to search";
+        //remove whitespace around proftext
+        profText = profText.trim();
+        clickToSearchPopupElem.textContent = "Search for " + profText;
+        if (profText.length === 0) {
+            clickToSearchPopupElem.textContent = "Click to search";
+        }
         clickToSearchPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
 
         if (profText === "") {
@@ -519,7 +526,6 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
             clickToSearchPopupElem.style.display = "none";
         });
     }
-    ratingBubbleElem.classList.remove('pulsating');
     instructorElem.appendChild(popupCard);
     popupCard.appendChild(cardProfName);
     popupCard.appendChild(cardProfDept);

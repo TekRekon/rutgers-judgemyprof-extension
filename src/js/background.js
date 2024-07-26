@@ -48,6 +48,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
+
 /**
  * Identifies and caches the most likely professor ID based on name and optional match text.
  * Professors spread out across multiple schools in RateMyProfessors, so search 5 most popular schools for now.
@@ -59,6 +60,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * @returns {Promise<Object|null>} - A promise that resolves to the most likely professor's stats object, or null if not found.
  */
 async function fetchMostLikelyProfessorID(profName, matchText = "") {
+    if (profName === "") {
+        return null;
+    }
     const cacheKey = `${profName}_${matchText}`;
     if (filteredProfStats.has(cacheKey)) {
         return filteredProfStats.get(cacheKey);
@@ -67,15 +71,34 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
     return fetchPromises.mostLikelyProf[cacheKey] ||= (async () => {
         let profMap = new Map();
 
-        //1) Fetch professor stats from the 5 most popular schools
-        for (let i = 0; i < 4; i++) { // Only search the 5 most popular schools for now
-            let profIDs = await fetchProfessorID(profName, SCHOOLS[i][0], 4);
-            let limit = profIDs ? profIDs.length : 0;
-            for (let j = 0; j < limit; j++) {
-                let profID = profIDs[j].node.id;
+        // 1) Fetch professor stats from the 5 most popular schools
+        for (let i = 0; i < 5; i++) {
+            let profIDs = await fetchProfessorID(profName, SCHOOLS[i][0], 20);
+            if (!profIDs) continue;
+
+            for (let prof of profIDs) {
+                let profID = prof.node.id;
                 let profStats = await fetchProfessorStats(profID);
-                if (profStats) {
-                    profMap.set(profID, profStats);
+                if (!profStats) continue;
+
+                let searchNames = profName.replace(/[^a-zA-Z\s]+/g, '').trim().toLowerCase().split(/\s+/);
+                let foundFirstName = profStats.firstName.replace(/[^a-zA-Z]/g, '').trim().toLowerCase() || "+++"; //default to "+++" if no first name to avoid matching with empty string
+                let foundLastName = profStats.lastName.replace(/[^a-zA-Z]/g, '').trim().toLowerCase() || "+++";
+
+                if (searchNames.length === 1) {
+                    let name = searchNames[0];
+                    if (name.includes(foundFirstName) || name.includes(foundLastName) ||
+                        foundFirstName.includes(name) || foundLastName.includes(name)) {
+                        profMap.set(profID, profStats);
+                    }
+                } else if (searchNames.length > 1) {
+                    let [firstName, lastName] = searchNames;
+                    if ((foundFirstName.includes(firstName) && foundLastName.includes(lastName)) ||
+                        (foundFirstName.includes(lastName) && foundLastName.includes(firstName)) ||
+                        (firstName.includes(foundFirstName) && lastName.includes(foundLastName)) ||
+                        (firstName.includes(foundLastName) && lastName.includes(foundFirstName))) {
+                        profMap.set(profID, profStats);
+                    }
                 }
             }
         }
@@ -128,13 +151,15 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
         }
         let maxProf = profMap.get(maxProfID);
         maxProf.department = fetchAlias(maxProf.department, true);
-        if (maxProf.department !== "") {
+        //only save if all departments are known
+        if (Array.from(profMap.values()).every((value) => value.department !== "")) {
             filteredProfStats.set(cacheKey, maxProf);
             await chrome.storage.local.set({[`${profName}_${matchText}`]: maxProf});
         }
         return profMap.get(maxProfID);
     })().finally(() => delete fetchPromises.mostLikelyProf[cacheKey]);
 }
+
 
 /**
  * Fetches and caches professor ID(s) based on name and school ID, with optional limit on results.
@@ -163,6 +188,7 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
     return fetchPromises.profID[cacheKey];
 }
 
+
 /**
  * Fetches and caches professor statistics by ID (retrieved from the fetchProfessorID function).
  * Returns cached data if available. Only caches non-null results.
@@ -182,10 +208,15 @@ async function fetchProfessorStats(profID) {
                 //capitalize first letter of first and possible last name, lowercase the rest
                 data.data.node.firstName = data.data.node.firstName.toLowerCase().replace(/\b[a-z]/g, letter => letter.toUpperCase());
                 data.data.node.lastName = data.data.node.lastName.toLowerCase().replace(/\b[a-z]/g, letter => letter.toUpperCase());
+                if (data.data.node.hasOwnProperty('avgRating') && data.data.node.avgRating > 5) {
+                    data.data.node.avgRating = 5;
+                }
                 if (!data.data.node.hasOwnProperty('department')) {
                     data.data.node.department = "";
                 }
-                profStatsCache.set(profID, data.data.node);
+                else {
+                    profStatsCache.set(profID, data.data.node);
+                }
                 return data.data.node;
             }
             return null;
@@ -193,6 +224,7 @@ async function fetchProfessorStats(profID) {
     }
     return fetchPromises.profStats[profID];
 }
+
 
 /**
  * Asynchronously fetches data from an API using a POST request.
@@ -215,6 +247,7 @@ async function apiFetch(query, variables) {
         throw error;
     }
 }
+
 
 /**
  * Converts department names to their aliases and vice versa to improve accuracy in Fuse searches.
@@ -241,6 +274,7 @@ function fetchAlias(departmentName, backToOriginal = false) {
         return departmentAliases[departmentName];
     }
 }
+
 
 /**
  * Initializes the cache by fetching from Chrome local storage and storing it in the filteredProfStats map.

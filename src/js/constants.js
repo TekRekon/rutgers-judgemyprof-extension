@@ -43,6 +43,8 @@ self.departmentAliases = {
     "Business": "Manag Administrative Business",
     "Management": "Busi Administrative Management",
     "Accounting": "Busi Administrative Accounting",
+    "Religion": "Evangelical Religion",
+    "Spanish": "World Language Spanish"
 }
 
 self.CAMPUS_CODES = {
