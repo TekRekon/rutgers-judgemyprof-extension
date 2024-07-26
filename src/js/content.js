@@ -257,20 +257,20 @@ function extractInstructorNames(instructorElement) {
         instructorNames = instructorElement.textContent.trim().split(";").map(name => name.trim());
         for (let i = 0; i < instructorNames.length; i++) {
             let currLastFirst = instructorNames[i].split(",").map(name => name.trim());
-            // for (let j = 0; j < currLastFirst.length; j++) {
-            //     if (currLastFirst[j].includes(" ")) { //has middle initial
-            //         currLastFirst[j] = currLastFirst[j].split(" ")[1].trim();
-            //     }
-            // }
+            for (let j = 0; j < currLastFirst.length; j++) {
+                if (currLastFirst[j].includes(" ")) { //has middle initial
+                    currLastFirst[j] = currLastFirst[j].split(" ")[1].trim();
+                }
+            }
             instructorNames[i] = currLastFirst.join(" ");
         }
     } else if (isCSP) {
         instructorNames = instructorElement.textContent.trim().split(",").map(name => name.trim());
-        // for (let i = 0; i < instructorNames.length; i++) {
-        //     if (instructorNames[i].includes(" ")) { //has middle initial
-        //         instructorNames[i] = instructorNames[i].split(" ")[1].trim();
-        //     }
-        // }
+        for (let i = 0; i < instructorNames.length; i++) {
+            if (instructorNames[i].includes(" ")) { //has middle initial
+                instructorNames[i] = instructorNames[i].split(" ")[1].trim();
+            }
+        }
     }
     return instructorNames;
 }
