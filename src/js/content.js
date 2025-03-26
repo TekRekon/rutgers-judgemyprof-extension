@@ -219,7 +219,8 @@ async function addWebregLinkToIndexElement(indexElement) {
     });    
     // Add click handler to open WebReg
     webregBubble.onclick = function() {
-        window.open(`http://sims.rutgers.edu/webreg/editSchedule.htm?login=cas&semesterSelection=${numericSeason}${year}&indexList=${index}`, '_blank');
+        window.open(`http://sims.rutgers.edu/webreg/editSchedule.htm?login=cas&semesterSelection=${numericSeason}${year}&indexList=${index}`, '_blank',
+          'noopener,noreferrer');
     };    
     // Add the bubble to the index element
     indexElement.appendChild(webregBubble);
