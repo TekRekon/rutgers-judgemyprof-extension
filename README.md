@@ -22,6 +22,8 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 
 - **Easy and Automatic Installation**: Only runs when you access a Rutgers course registration page
 
+- **Easy Registration**: Course views in CSP provide quick registration links, automatically populating your selected course on WebReg
+
 
 
 ## Installation 
