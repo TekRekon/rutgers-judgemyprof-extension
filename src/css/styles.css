@@ -136,3 +136,34 @@
     transition: box-shadow 0.3s ease, transform 0.1s ease;
     cursor: pointer;
 }
+
+.jmp-webreg-bubble {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #7fb0fa; /* Light blue color */
+    border-radius: 10px;
+    margin-top: 10px;
+    position: relative;
+    text-align: center;
+    transition: box-shadow 0.3s ease, transform 0.1s ease;
+    cursor: pointer;
+}
+
+.jmp-click-to-register-popup {
+    display: none;
+    position: absolute;
+    background-color: white;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #7fb0fa;
+    top: -25px;
+    right: 30px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 100000000;
+}

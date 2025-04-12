@@ -9,28 +9,34 @@ if (isCSP) {
     //when user clicks a tab within csp/page loads
     window.addEventListener('popstate', function (event) {
         addRatingToInstructorElements(null);
+        addWebregLinkToIndexElements(null);
     });
 
     document.addEventListener('click', function (event) {
         //when user clicks on a course dropdown
         if (event.target.closest('.dijitTitlePane')) {
             addRatingToInstructorElements(event.target.closest('.dijitTitlePane'));
+            addWebregLinkToIndexElements(event.target.closest('.dijitTitlePane'));  
         }
         //if next/prev button is clicked in the build schedule tab
         if (event.target.closest('#dijit_form_Button_3') || event.target.closest('#dijit_form_Button_2')) {
             addRatingToInstructorElements(null);
+            addWebregLinkToIndexElements(null);
         }
         //if remove button clicked in saved schedule tab
         if (event.target.closest('tbody[dojoattachpoint="scheduleList"] .remove')) {
             addRatingToInstructorElements(null);
+            addWebregLinkToIndexElements(null);
         }
         //if a schedule is clicked in the saved schedule tab
         if (event.target.closest('tbody[dojoattachpoint="scheduleList"] a[dojoattachpoint="scheduleName"]')) {
             addRatingToInstructorElements(null);
+            addWebregLinkToIndexElements(null);
         }
         //if the user clicks on the list view link in the saved schedule tab or build schedule tab
         if (event.target.closest('.list-view-link')) {
             addRatingToInstructorElements(null);
+            addWebregLinkToIndexElements(null);
         }
     });
 } else if (isSOC || isOldSOC || isWebReg) {
@@ -39,6 +45,7 @@ if (isCSP) {
         let dropdownElem = event.target.closest('.subject');
         if (dropdownElem) {
             addRatingToInstructorElements(dropdownElem);
+            addWebregLinkToIndexElements(dropdownElem);
         }
     });
 }
@@ -62,6 +69,23 @@ async function addRatingToInstructorElements(elementWithCourseName) {
     }
 }
 
+/**
+ * Asynchronously adds a webreg link to index elements
+ *
+ * @param {HTMLElement} elementWithCourseName - Optionally null. The element containing the course name.
+ */
+async function addWebregLinkToIndexElements(elementWithCourseName) {
+    try {
+        const indexElements = extractIndexElements(elementWithCourseName);
+        //instead of using a for loop, we use Promise.all to and all webreg links to index elements concurrently
+        const promises = indexElements.map((indexElement) =>
+            addWebregLinkToIndexElement(indexElement)
+        );
+        await Promise.all(promises);
+    } catch (error) {
+        console.error(error);
+    }
+}
 
 /**
  * Rates an instructor element, adding rating bubbles for each possible professor.
@@ -146,6 +170,77 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
     }
 }
 
+/**
+ * Adds a webreg link to an index element
+ *
+ * @param {Element} indexElement - The DOM element associated with the index.
+ */
+async function addWebregLinkToIndexElement(indexElement) {
+    //get the year and season from the yearTermElement
+    const yearTermElement = document.querySelector('span[name="YearTerm"]').textContent;
+    const season = yearTermElement.split(' ')[0];
+    const numericSeason = getNumericSeason(season);
+    const year = yearTermElement.split(' ')[1];
+    const index = indexElement.textContent;
+    //display the index element as a flex container
+    indexElement.style.display = 'flex';
+    indexElement.style.flexDirection = 'column';
+    indexElement.style.justifyContent = 'center';
+    indexElement.style.alignItems = 'center';
+    indexElement.style.flex = '1';
+    indexElement.style.height = '100%';
+    // Create a bubble-style webreg link
+    const webregBubble = document.createElement('div');
+    webregBubble.classList.add('jmp-webreg-bubble');
+    webregBubble.textContent = 'WebReg';
+    // Create the popup that appears on hover
+    const clickToRegisterPopup = document.createElement('div');
+    clickToRegisterPopup.className = 'jmp-click-to-register-popup';
+    clickToRegisterPopup.textContent = 'Click to register for index ' + index;
+    clickToRegisterPopup.style.display = 'none';
+    clickToRegisterPopup.style.maxWidth = `${window.innerWidth * 0.65}px`;
+    // Add the popup to the bubble
+    webregBubble.appendChild(clickToRegisterPopup);
+    // Add hover effects
+    webregBubble.addEventListener('mouseover', () => {
+        webregBubble.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.3)';
+        clickToRegisterPopup.style.display = 'block';
+    });    
+    webregBubble.addEventListener('mouseleave', () => {
+        webregBubble.style.boxShadow = 'none';
+        clickToRegisterPopup.style.display = 'none';
+    });    
+    // Add press effects
+    webregBubble.addEventListener('mousedown', () => {
+        webregBubble.style.transform = 'translateY(2px)';
+    });
+    webregBubble.addEventListener('mouseup', () => {
+        webregBubble.style.transform = 'translateY(-2px)';
+    });    
+    // Add click handler to open WebReg
+    webregBubble.onclick = function() {
+        window.open(`http://sims.rutgers.edu/webreg/editSchedule.htm?login=cas&semesterSelection=${numericSeason}${year}&indexList=${index}`, '_blank',
+          'noopener,noreferrer');
+    };    
+    // Add the bubble to the index element
+    indexElement.appendChild(webregBubble);
+}
+  
+  /**
+   * Converts a season string to a numeric value
+   *
+   * @param {string} season - The season to convert
+   * @returns {number} The numeric value of the season
+   */
+function getNumericSeason(season) {
+    const seasonMap = {
+        Spring: 1,
+        Summer: 7,
+        Fall: 9,
+        Winter: 12,
+    };
+    return seasonMap[season];
+}
 
 /**
  * Extracts and filters instructor-related DOM elements based on the website.
@@ -175,6 +270,39 @@ function extractInstructorElements(elementWithCourseName) {
     return filteredInstructorElements;
 }
 
+/**
+ * Extracts and filters index-related DOM elements in CSP.
+ * Uses the elementWithCourseName parameter to filter out index elements not associated with the current selected
+ * course. If null, attempts to extract all index elements on the page, then filter them.
+ *
+ * @param {Element} elementWithCourseName - Optionally null. DOM element containing course information.
+ * @returns {Element[]} Array of DOM elements representing indexes, post-filtering.
+ */
+function extractIndexElements(elementWithCourseName) {
+    let unfilteredIndexElements = [];
+    if (isCSP) {
+        //unfiltered index elements
+        unfilteredIndexElements = document.querySelectorAll(
+            'td[title="Index Number"]'
+        );
+        //filter out selected index elements not from the current dropdown if a dropdown was clicked
+        if (elementWithCourseName) {
+            unfilteredIndexElements = Array.from(unfilteredIndexElements).filter(
+            function (indexElement) {
+                return elementWithCourseName.contains(indexElement);
+            }
+        );
+      }
+    }
+    //filter out index elements that are empty or already have a webreg bubble
+    let filteredIndexElements = Array.from(unfilteredIndexElements).filter(
+        function (indexElement) {
+            return indexElement && !indexElement.querySelector('.jmp-webreg-bubble');
+        }
+    );
+    return filteredIndexElements;
+}
+  
 
 /**
  * Extracts the subject name from the current page based on the context (SOC, WebReg, old SOC, or CSP).
