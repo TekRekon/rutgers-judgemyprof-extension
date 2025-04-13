@@ -124,6 +124,26 @@
     text-overflow: ellipsis;
 }
 
+.jmp-card-search-button {
+    position: absolute;
+    top: 5px; /* Adjust as needed */
+    right: 5px; /* Adjust as needed */
+    background-color: lightgray; /* Similar to warning bubble */
+    border-radius: 50%;
+    width: 25px; /* Match warning bubble size */
+    height: 25px; /* Match warning bubble size */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px; /* Match warning bubble font size */
+    transition: background-color 0.2s ease; /* Add hover effect */
+}
+
+.jmp-card-search-button:hover {
+    background-color: #bbb; /* Darken slightly on hover */
+}
+
 .jmp-rating-bubble {
     display: inline-block;
     padding: 8px;

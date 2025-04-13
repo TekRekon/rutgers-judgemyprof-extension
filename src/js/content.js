@@ -528,6 +528,7 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
     const cardWarningMessagePopupElem = document.createElement("div");
     const ratingBubbleWarningBubbleElem = document.createElement("div");
     const clickToSearchPopupElem = document.createElement("div");
+    const searchButtonElem = document.createElement("div"); // Magnifying glass button
     const box = document.createElement("div");
     const details = document.createElement("div");
     const popupCard = document.createElement('div');
@@ -543,6 +544,7 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
     cardWarningMessagePopupElem.className = "jmp-card-warning-message-popup";
     ratingBubbleWarningBubbleElem.className = "jmp-rating-bubble-warning-bubble";
     clickToSearchPopupElem.className = "jmp-click-to-search-popup";
+    searchButtonElem.className = "jmp-card-search-button"; // Add class for styling
     box.className = "jmp-box";
     details.className = "jmp-details";
 
@@ -568,6 +570,17 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
         reviewsLink.target = "_blank";
         cardDifficultyElem.textContent = "Level Of Difficulty: " + (response.data.numRatings > 0 ? response.data.avgDifficulty : "N/A");
         cardWouldTakeAgainElem.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent !== -1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
+
+        // Add magnifying glass button to the card
+        searchButtonElem.innerHTML = '&#x1F50D;'; // Magnifying glass Unicode character
+        searchButtonElem.title = `Search Google for "${response.data.firstName} ${response.data.lastName}"`;
+        searchButtonElem.onclick = function (event) {
+            event.stopPropagation(); // Prevent card click event
+            const query = encodeURIComponent(`${response.data.firstName} ${response.data.lastName} rutgers rate my professor`);
+            window.open(`https://www.google.com/search?q=${query}`, '_blank');
+        };
+        popupCard.appendChild(searchButtonElem);
+
 
         ratingBubbleElem.onclick = function () {
             window.open(reviewsLink.href, '_blank');
