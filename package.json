@@ -1,6 +1,6 @@
 {
   "name": "rutgers-judgemyprofessor",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable information about your professors",
   "author": "Lukas Siernos",
   "type": "module",
