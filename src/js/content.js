@@ -564,7 +564,6 @@ function convertToErrorBubble(ratingBubbleElem, error) {
  * @param {string} profText - The text used to identify the professor.
  */
 function populateRatingBubble(instructorElem, ratingBubbleElem, response, profText) {
-    console.log("Populating rating bubble for:", profText, response);
     const cardProfName = document.createElement("div");
     const cardProfDept = document.createElement("div");
     const cardRatingElem = document.createElement("div");

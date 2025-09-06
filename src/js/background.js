@@ -107,9 +107,6 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
             return null;
         }
 
-        //print to console profmap
-        console.log(`Professors found for ${profName} with match text "${matchText}":`, Array.from(profMap.values())); 
-
         if (profMap.size === 1) {
             let firstValue = profMap.values().next().value;
             filteredProfStats.set(cacheKey, firstValue);
@@ -127,7 +124,6 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
         // Preprocess the matchText for better fuzzy search results
         const preprocessedMatchText = preprocessSearchText(matchText);
         const result = fuse.search(preprocessedMatchText);
-        console.log(`Fuse search results for match text "${preprocessedMatchText}" and professor ${profName}:`, result);
 
         if (result.length !== 0) {
             const lowestScore = result[0].score;
@@ -145,8 +141,6 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
                 }
             });
         }
-
-        console.log(`Professors after Fuse filtering for ${profName} with match text "${preprocessedMatchText}":`, Array.from(profMap.values()));
 
         //3) Select professor with  most ratings
         let maxProfID = null;
