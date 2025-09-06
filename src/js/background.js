@@ -107,6 +107,9 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
             return null;
         }
 
+        //print to console profmap
+        console.log(`Professors found for ${profName} with match text "${matchText}":`, Array.from(profMap.values())); 
+
         if (profMap.size === 1) {
             let firstValue = profMap.values().next().value;
             filteredProfStats.set(cacheKey, firstValue);
@@ -121,7 +124,10 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
 
         });
         const fuse = new Fuse(profDepartments, FUSE_OPTIONS);
-        const result = fuse.search(matchText);
+        // Preprocess the matchText for better fuzzy search results
+        const preprocessedMatchText = preprocessSearchText(matchText);
+        const result = fuse.search(preprocessedMatchText);
+        console.log(`Fuse search results for match text "${preprocessedMatchText}" and professor ${profName}:`, result);
 
         if (result.length !== 0) {
             const lowestScore = result[0].score;
@@ -139,6 +145,8 @@ async function fetchMostLikelyProfessorID(profName, matchText = "") {
                 }
             });
         }
+
+        console.log(`Professors after Fuse filtering for ${profName} with match text "${preprocessedMatchText}":`, Array.from(profMap.values()));
 
         //3) Select professor with  most ratings
         let maxProfID = null;
@@ -250,6 +258,106 @@ async function apiFetch(query, variables) {
 
 
 /**
+ * Preprocesses text for better fuzzy search matching by:
+ * - Removing stop words
+ * - Normalizing case and whitespace
+ * - Expanding common abbreviations
+ * - Removing numbers and special characters
+ *
+ * @param {string} text - The text to preprocess
+ * @returns {string} - The preprocessed text
+ */
+function preprocessSearchText(text) {
+    if (!text || typeof text !== 'string') {
+        return '';
+    }
+
+    // Convert to lowercase and normalize whitespace
+    let processed = text.toLowerCase().trim();
+    
+    // Remove common stop words that don't help with matching
+    const stopWords = ['the', 'and', 'or', 'of', 'in', 'for', 'to', 'a', 'an', 'is', 'at', 'by', 'on', 'with'];
+    const stopWordsSet = new Set(stopWords);
+    
+    // Expand common abbreviations before tokenizing
+    const abbreviations = {
+        'cs': 'computer science',
+        'cse': 'computer science engineering',
+        'ee': 'electrical engineering',
+        'me': 'mechanical engineering',
+        'ce': 'civil engineering',
+        'bio': 'biology',
+        'chem': 'chemistry',
+        'phys': 'physics',
+        'math': 'mathematics',
+        'stats': 'statistics',
+        'econ': 'economics',
+        'psych': 'psychology',
+        'phil': 'philosophy',
+        'hist': 'history',
+        'lit': 'literature',
+        'eng': 'english',
+        'mgmt': 'management',
+        'bus': 'business',
+        'acct': 'accounting',
+        'fin': 'finance',
+        'mkt': 'marketing',
+        'ops': 'operations',
+        'sci': 'science',
+        'tech': 'technology',
+        'info': 'information',
+        'sys': 'systems',
+        'dev': 'development',
+        'prog': 'programming',
+        'lang': 'language',
+        'comm': 'communications',
+        'med': 'medicine',
+        'health': 'health',
+        'env': 'environmental',
+        'soc': 'sociology',
+        'anth': 'anthropology',
+        'geo': 'geography',
+        'poli': 'political',
+        'govt': 'government',
+        'admin': 'administration',
+        'edu': 'education',
+        'relig': 'religion',
+        'art': 'arts',
+        'mus': 'music',
+        'thea': 'theater',
+        'calc': 'calculus'
+    };
+
+    // Apply abbreviation expansions
+    for (const [abbrev, expansion] of Object.entries(abbreviations)) {
+        // Use word boundaries to avoid partial matches
+        const regex = new RegExp(`\\b${abbrev}\\b`, 'gi');
+        processed = processed.replace(regex, expansion);
+    }
+    
+    // Remove numbers, parentheses, and other non-alphabetic characters
+    processed = processed.replace(/[+0-9()]/g, ' ');
+    processed = processed.replace(/[^a-zA-Z ]/g, ' ');
+    
+    // Tokenize and filter stop words
+    const tokens = processed.split(/\s+/)
+        .filter(token => token.length > 0 && !stopWordsSet.has(token));
+    
+    // Remove duplicate tokens while preserving order
+    const uniqueTokens = [];
+    const seen = new Set();
+    for (const token of tokens) {
+        if (!seen.has(token)) {
+            uniqueTokens.push(token);
+            seen.add(token);
+        }
+    }
+    
+    // Rejoin tokens with single spaces
+    return uniqueTokens.join(' ').trim();
+}
+
+/**
  * Converts department names to their aliases and vice versa to improve accuracy in Fuse searches.
  * Utilizes a constants file that contains custom mappings between department names and their aliases.
  *
@@ -284,7 +392,7 @@ async function initializeCache() {
     try {
         await chrome.storage.local.get(null, function (items) {
             const threeWeeks = 3 * 7 * 24 * 60 * 60 * 1000; // milliseconds
-            if (!items.cacheTimestamp || (Date.now() - items.cacheTimestamp > threeWeeks)) {
+            if (!items || !items.cacheTimestamp || (Date.now() - items.cacheTimestamp > threeWeeks)) {
                 chrome.storage.local.clear();
                 chrome.storage.local.set({'cacheTimestamp': Date.now()});
             } else {

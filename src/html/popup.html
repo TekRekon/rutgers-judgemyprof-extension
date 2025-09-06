@@ -47,8 +47,10 @@
         }
 
         #status-message {
-            margin-top: 10px;
+            margin-top: 15px;
+            margin-bottom: 10px;
             display: none;
+            text-align: center;
         }
         .success-message {
             color: white;
@@ -74,6 +76,16 @@
                 transform: scale(1);
             }
         }
+
+        .reset-button.pressed {
+            background-color: #555;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+            transform: translateY(1px);
+        }
+
+        .reset-button.pressed:hover {
+            background-color: #666;
+        }
     </style>
 </head>
 <body>
@@ -81,7 +93,9 @@
 <img src="../assets/icons/logo.png" id="logo">
 <div class="button-container">
     <button class="reset-button" id="reset-cache">Reset Cache</button>
-    <div id="status-message"></div> </div>
+    <button class="reset-button" id="toggle-books-links" style="margin-top: 10px;">Hide Books Links</button>
+</div>
+<div id="status-message"></div>
 </div>
 <script src="../js/popup.js"></script>
 </body>

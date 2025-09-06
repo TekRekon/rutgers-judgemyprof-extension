@@ -4,6 +4,23 @@ const isSOC = currentPage.includes("/soc/");
 const isOldSOC = currentPage.includes("/oldsoc/");
 const isWebReg = currentPage.includes("/webreg/");
 
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'toggleBooksLinks') {
+        toggleBooksLinksVisibility(message.hide);
+        sendResponse({ success: true });
+    }
+});
+
+// Initialize books links visibility on page load
+document.addEventListener('DOMContentLoaded', initializeBooksLinksVisibility);
+
+// Also initialize when page is fully loaded (fallback)
+window.addEventListener('load', initializeBooksLinksVisibility);
+
+// Initialize immediately as well
+initializeBooksLinksVisibility();
+
 
 if (isCSP) {
     //when user clicks a tab within csp/page loads
@@ -107,6 +124,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
     if (isCSP && !instructorElement.querySelector('.jmp-rating-bubble')) {
         //on CSP, any name can be either a first or last name. Attempt combination, otherwise use the name as is
         let initializedBubbles = new Set();
+
 
         for (let i = 0; i < instructorNames.length; i++) {
             let currProfSearch = instructorNames[i];
@@ -382,16 +400,45 @@ function extractCourseName(instructorElement, elementWithCourseName) {
 function extractInstructorNames(instructorElement) {
     let instructorNames = [];
     if (isSOC || isOldSOC || isWebReg) {
-        instructorNames = instructorElement.textContent.trim().split(";").map(name => name.trim());
-        for (let i = 0; i < instructorNames.length; i++) {
-            let currLastFirst = instructorNames[i].split(",").map(name => name.trim());
-            for (let j = 0; j < currLastFirst.length; j++) {
-                if (currLastFirst[j].includes(" ")) { //has middle initial
-                    currLastFirst[j] = currLastFirst[j].split(" ")[1].trim();
+        // Names look like: "Last, First M" OR "Last, M First" and may be separated by semicolons
+        const rawNames = instructorElement.textContent
+            .trim()
+            .split(";")
+            .map((name) => name.trim())
+            .filter(Boolean);
+
+        instructorNames = rawNames.map((name) => {
+            const parts = name.split(",").map((p) => p.trim()).filter(Boolean);
+            if (parts.length !== 2) {
+                // Fallback: return as-is (normalized whitespace)
+                return name.replace(/\s+/g, " ");
+            }
+
+            const last = parts[0]; // keep full last name, including multi-word last names
+            const firstMiddle = parts[1];
+
+            const tokens = firstMiddle.split(/\s+/).filter(Boolean);
+            let first = "";
+
+            if (tokens.length === 1) {
+                // Only one token provided after comma, treat it as first name (strip trailing period if any)
+                first = tokens[0].replace(/\.$/, "");
+            } else {
+                // Prefer a token that is not just an initial (length > 1 and not like "J.")
+                const nonInitials = tokens.filter((t) => t.length > 1 && !/^[A-Z]\.?$/.test(t));
+                if (nonInitials.length === 1) {
+                    first = nonInitials[0];
+                } else if (nonInitials.length > 1) {
+                    // Ambiguous but prefer the first non-initial token
+                    first = nonInitials[0];
+                } else {
+                    // All tokens are initials: heuristically choose the last one as the first name surrogate
+                    first = tokens[tokens.length - 1].replace(/\.$/, "");
                 }
             }
-            instructorNames[i] = currLastFirst.join(" ");
-        }
+
+            return `${first} ${last}`.trim();
+        });
     } else if (isCSP) {
         instructorNames = instructorElement.textContent.trim().split(",").map(name => name.trim());
         for (let i = 0; i < instructorNames.length; i++) {
@@ -517,6 +564,7 @@ function convertToErrorBubble(ratingBubbleElem, error) {
  * @param {string} profText - The text used to identify the professor.
  */
 function populateRatingBubble(instructorElem, ratingBubbleElem, response, profText) {
+    console.log("Populating rating bubble for:", profText, response);
     const cardProfName = document.createElement("div");
     const cardProfDept = document.createElement("div");
     const cardRatingElem = document.createElement("div");
@@ -573,10 +621,10 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
 
         // Add magnifying glass button to the card
         searchButtonElem.innerHTML = '&#x1F50D;'; // Magnifying glass Unicode character
-        searchButtonElem.title = `Search Google for "${response.data.firstName} ${response.data.lastName}"`;
+        searchButtonElem.title = `Search Google for "${profText}"`;
         searchButtonElem.onclick = function (event) {
             event.stopPropagation(); // Prevent card click event
-            const query = encodeURIComponent(`${response.data.firstName} ${response.data.lastName} rutgers rate my professor`);
+            const query = encodeURIComponent(`${profText} Rutgers RateMyProfessors`);
             window.open(`https://www.google.com/search?q=${query}`, '_blank');
         };
         popupCard.appendChild(searchButtonElem);
@@ -625,7 +673,7 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
             popupCard.appendChild(cardWarningBubbleElem);
             popupCard.appendChild(cardWarningMessagePopupElem);
             cardWarningBubbleElem.textContent = "?";
-            cardWarningMessagePopupElem.textContent = "Professor may be inaccurate: only last name provided";
+            cardWarningMessagePopupElem.textContent = "May be inaccurate: only last name provided";
 
             cardWarningBubbleElem.addEventListener("mouseover", () => {
                 cardWarningMessagePopupElem.style.display = "block";
@@ -655,7 +703,7 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
             };
         } else {
             ratingBubbleElem.onclick = function () {
-                window.open("https://www.google.com/search?q=" + profText + "+rutgers+rate+my+professor", '_blank');
+                window.open("https://www.google.com/search?q=" + profText + "+Rutgers+RateMyProfessors", '_blank');
             };
         }
         ratingBubbleElem.addEventListener("mouseover", () => {
@@ -742,7 +790,7 @@ function findParentDiv(element, className) {
  * @param {number} [stepThreshold=12] - The text length threshold at which to start decreasing the font size.
  * @returns {number} The calculated font size, with a minimum value of 10.
  */
-function getDynamicFontSize(text, baseSize = 17, stepSize = 6, stepThreshold = 12) {
+function getDynamicFontSize(text, baseSize = 15, stepSize = 25, stepThreshold = 15) {
     const length = text.length;
     let fontSize = baseSize;
     if (length > stepThreshold) {
@@ -752,6 +800,7 @@ function getDynamicFontSize(text, baseSize = 17, stepSize = 6, stepThreshold = 1
     fontSize = Math.max(fontSize, 10);
     return fontSize;
 }
+
 
 
 /**
@@ -772,4 +821,59 @@ function getRatingColor(rating) {
         {max: 5.0, color: "#6ad46a"}
     ];
     return ratingColors.find(rc => rating <= rc.max)?.color || "lightgray"; //Default to lightgray if no match
+}
+
+
+/**
+ * Initialize books links visibility based on stored setting
+ */
+async function initializeBooksLinksVisibility() {
+    try {
+        const result = await chrome.storage.sync.get(['hideBooksLinks']);
+        if (result.hideBooksLinks) {
+            toggleBooksLinksVisibility(true);
+            
+            // Set up observer for dynamically added content
+            setupBooksLinksObserver();
+        }
+    } catch (error) {
+        console.log('Could not load books links setting:', error);
+    }
+}
+
+/**
+ * Set up MutationObserver to hide books links in dynamically loaded content
+ */
+function setupBooksLinksObserver() {
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if the added node or its children contain books links
+                        const booksLinks = node.matches?.('.books') ? [node] : node.querySelectorAll?.('.books') || [];
+                        booksLinks.forEach(link => {
+                            link.style.visibility = 'hidden';
+                        });
+                    }
+                });
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+/**
+ * Toggle visibility of books links on the page
+ * @param {boolean} hide - Whether to hide the books links
+ */
+function toggleBooksLinksVisibility(hide) {
+    const booksLinks = document.querySelectorAll('.books');
+    booksLinks.forEach(link => {
+        link.style.visibility = hide ? 'hidden' : 'visible';
+    });
 }

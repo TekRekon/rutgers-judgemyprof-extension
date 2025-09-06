@@ -37,14 +37,16 @@ query ($id: ID!) {
 //tweak fuse search to increase accuracy for specific departments
 self.departmentAliases = {
     "Genetics": "Bio Science Genetics",
-    "Mathematics": "Calc Mathematics",
+    "Mathematics": "Calculus Mathematics",
     "Geography": "Env Science Remote Geography",
     "Geology": "Graphy Sci Earth Geology",
     "Business": "Manag Administrative Business",
     "Management": "Busi Administrative Management",
     "Accounting": "Busi Administrative Accounting",
     "Religion": "Evangelical Religion",
-    "Spanish": "World Language Spanish"
+    "Spanish": "World Language Spanish",
+    "Linguistics": "World Language Linguistics",
+    "Physics": "Science Physics"
 }
 
 self.CAMPUS_CODES = {
@@ -60,7 +62,7 @@ const FUSE_OPTIONS = {
     includeScore: true,
     threshold: 1, // Adjust threshold for "fuzzy" matches
     ignoreLocation: true, // Since we're not interested in where the term is in the string
-    minMatchCharLength: 0, // Minimum number of characters that must be matched for a result to be returned
+    minMatchCharLength: 4, // Minimum number of characters that must be matched for a result to be returned
     findAllMatches: true, // Find all matches, regardless of score
     isCaseSensitive: false, // Turn off case sensitivity
 };
