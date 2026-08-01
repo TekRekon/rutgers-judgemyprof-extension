@@ -180,9 +180,10 @@ async function fetchProfessorID(profName, schoolID, first = 1) {
     }
     if (!fetchPromises.profID[cacheKey]) {
         fetchPromises.profID[cacheKey] = apiFetch(ProfessorIDQuery, {text: profName, schoolID, first}).then(data => {
-            if (!(data.data.newSearch.teachers.edges.length === 0)) {
-                profIDCache.set(cacheKey, data.data.newSearch.teachers.edges);
-                return data.data.newSearch.teachers.edges;
+            const edges = data.data.newSearch?.teachers?.edges ?? [];
+            if (!(edges.length === 0)) {
+                profIDCache.set(cacheKey, edges);
+                return edges;
             }
             return null;
         }).finally(() => delete fetchPromises.profID[cacheKey]);
@@ -229,25 +230,84 @@ async function fetchProfessorStats(profID) {
 
 
 /**
- * Asynchronously fetches data from an API using a POST request.
+ * Asynchronously fetches data from an API using a POST request. Cookies are deliberately left out,
+ * see the note on the request below.
+ * Transient failures (network errors and retryable status codes) are retried with a linear backoff.
+ * RateMyProfessors reports GraphQL problems with a 200 response and a populated errors array, so a
+ * missing data payload is surfaced as an error instead of being handed back to the caller.
  *
  * @param {string} query - The GraphQL query string.
  * @param {object} variables - The variables for the GraphQL query.
+ * @param {number} [attempt=0] - The current retry attempt, used internally by the backoff.
  * @returns {Promise<object>} The JSON response from the API.
  * @throws {Error} When the fetch operation fails
  */
-async function apiFetch(query, variables) {
+async function apiFetch(query, variables, attempt = 0) {
+    let response;
     try {
-        const response = await fetch(API_URL, {
-            method: "POST", headers: {Authorization: AUTHORIZATION_TOKEN}, body: JSON.stringify({query, variables})
+        response = await fetch(API_URL, {
+            method: "POST",
+            headers: {Authorization: AUTHORIZATION_TOKEN, "Content-Type": "application/json"},
+            //the API needs no session, and RateMyProfessors accumulates enough advertising cookies to
+            //push the request past the server's header limit, which fails every request with a 400
+            credentials: "omit",
+            body: JSON.stringify({query, variables})
         });
-        if (!response.ok) {
-            throw new Error(`API fetch failed: code ${response.status}, ${response.statusText}`);
+    } catch (networkError) {
+        //fetch only rejects on network level failures, which are usually temporary
+        if (attempt < MAX_FETCH_RETRIES) {
+            await delay(FETCH_RETRY_DELAY_MS * (attempt + 1));
+            return apiFetch(query, variables, attempt + 1);
         }
-        return await response.json();
-    } catch (error) {
-        throw error;
+        throw new Error(`API fetch failed: could not reach RateMyProfessors (${networkError.message})`);
     }
+
+    if (!response.ok) {
+        if (RETRYABLE_STATUS_CODES.has(response.status) && attempt < MAX_FETCH_RETRIES) {
+            await delay(FETCH_RETRY_DELAY_MS * (attempt + 1));
+            return apiFetch(query, variables, attempt + 1);
+        }
+        //statusText is empty over HTTP/2, so describe the failure with the server's own response instead
+        const reason = await readErrorReason(response);
+        throw new Error(`API fetch failed: code ${response.status}${reason ? `, ${reason}` : ""}`);
+    }
+
+    const data = await response.json();
+    if (!data || !data.data) {
+        const reason = (data && data.errors && data.errors[0] && data.errors[0].message) || "no data returned";
+        throw new Error(`API fetch failed: ${reason}`);
+    }
+    return data;
+}
+
+
+/**
+ * Extracts a short, readable explanation from a failed response so error bubbles are diagnosable.
+ * Server level failures arrive as an HTML error page rather than JSON, so the page title is preferred
+ * when one exists and the raw body is truncated otherwise.
+ *
+ * @param {Response} response - The failed response to describe.
+ * @returns {Promise<string>} - A short description of the failure, or an empty string if unavailable.
+ */
+async function readErrorReason(response) {
+    try {
+        const text = (await response.text()).trim();
+        const title = text.match(/<title>([^<]+)<\/title>/i);
+        return (title ? title[1] : text).replace(/\s+/g, " ").slice(0, 120);
+    } catch (error) {
+        return "";
+    }
+}
+
+
+/**
+ * Resolves after the given number of milliseconds. Used to space out retried API requests.
+ *
+ * @param {number} ms - The number of milliseconds to wait.
+ * @returns {Promise<void>} - A promise that resolves once the delay has elapsed.
+ */
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 

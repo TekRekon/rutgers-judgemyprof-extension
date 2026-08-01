@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rutgers JudgeMyProfessor",
   "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable information about your professors",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "permissions": [
     "storage"
   ],
@@ -30,7 +30,7 @@
     "128": "src/assets/icons/logo128.png"
   },
   "host_permissions": [
-    "https://www.ratemyprofessors.com/graphql/"
+    "https://www.ratemyprofessors.com/graphql*"
   ],
   "background": {
     "service_worker": "./src/js/background.js"

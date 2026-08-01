@@ -1,6 +1,11 @@
 self.AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
 self.API_URL = "https://www.ratemyprofessors.com/graphql";
 
+//retry settings for transient RateMyProfessors failures (network blips, throttling, gateway errors)
+self.MAX_FETCH_RETRIES = 2;
+self.FETCH_RETRY_DELAY_MS = 400;
+self.RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
 self.ProfessorIDQuery = `
 query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
 {
