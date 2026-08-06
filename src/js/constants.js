@@ -1,7 +1,14 @@
-self.AUTHORIZATION_TOKEN = "Basic dGVzdDp0ZXN0";
 self.API_URL = "https://www.ratemyprofessors.com/graphql";
+self.CACHE_SCHEMA_VERSION = 2;
+self.CACHE_MAX_AGE_MS = 3 * 7 * 24 * 60 * 60 * 1000;
+self.MAX_CONCURRENT_API_REQUESTS = 6;
+self.MAX_FETCH_RETRIES = 2;
+self.FETCH_TIMEOUT_MS = 15_000;
+self.FETCH_RETRY_BASE_DELAY_MS = 400;
+self.FETCH_RETRY_MAX_DELAY_MS = 5_000;
+self.RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-self.ProfessorIDQuery = `
+self.ProfessorSearchQuery = `
 query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
 {
   newSearch {
@@ -9,6 +16,14 @@ query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
       edges {
         node {
           id
+          department
+          legacyId
+          firstName
+          lastName
+          avgRating
+          numRatings
+          avgDifficulty
+          wouldTakeAgainPercent
         }
       }
     }
@@ -16,26 +31,8 @@ query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
 }
 `;
 
-self.ProfessorStatsQuery = `
-query ($id: ID!) {
-    node(id: $id) {
-        ... on Teacher {
-            id
-            department
-            legacyId
-            firstName
-            lastName
-            avgRating
-            numRatings
-            avgDifficulty
-            wouldTakeAgainPercent
-        }
-    }
-}
-`;
-
 //tweak fuse search to increase accuracy for specific departments
-self.departmentAliases = {
+self.departmentAliases = Object.freeze({
     "Genetics": "Bio Science Genetics",
     "Mathematics": "Calculus Mathematics",
     "Geography": "Env Science Remote Geography",
@@ -47,7 +44,7 @@ self.departmentAliases = {
     "Spanish": "World Language Spanish",
     "Linguistics": "World Language Linguistics",
     "Physics": "Science Physics"
-}
+});
 
 self.CAMPUS_CODES = {
     NEWARK: 'NK',
@@ -58,14 +55,14 @@ self.CAMPUS_CODES = {
     ONLINE_NEW_BRUNSWICK: 'ONLINE_NB',
 };
 
-const FUSE_OPTIONS = {
+self.FUSE_OPTIONS = Object.freeze({
     includeScore: true,
     threshold: 1, // Adjust threshold for "fuzzy" matches
     ignoreLocation: true, // Since we're not interested in where the term is in the string
     minMatchCharLength: 4, // Minimum number of characters that must be matched for a result to be returned
     findAllMatches: true, // Find all matches, regardless of score
     isCaseSensitive: false, // Turn off case sensitivity
-};
+});
 
 //sorted by number of professors rated in each school
 self.SCHOOLS = [

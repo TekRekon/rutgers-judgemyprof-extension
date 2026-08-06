@@ -66,6 +66,15 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 - If you run into any problems, try clearing extension cache by clicking on the extension icon and clicking "Reset Cache"
 
 
+## Development
+
+Run the regression suite before loading the extension unpacked or publishing a change:
+
+```sh
+npm test
+```
+
+
 
 ## Contact
 

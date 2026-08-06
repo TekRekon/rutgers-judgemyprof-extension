@@ -90,13 +90,12 @@
 </head>
 <body>
 <h1>Rutgers JudgeMyProfessor</h1>
-<img src="../assets/icons/logo.png" id="logo">
+<img src="../assets/icons/logo.png" id="logo" alt="JudgeMyProfessor logo">
 <div class="button-container">
-    <button class="reset-button" id="reset-cache">Reset Cache</button>
-    <button class="reset-button" id="toggle-books-links" style="margin-top: 10px;">Hide Books Links</button>
+    <button type="button" class="reset-button" id="reset-cache">Reset Cache</button>
+    <button type="button" class="reset-button" id="toggle-books-links" aria-pressed="false" style="margin-top: 10px;">Hide Books Links</button>
 </div>
-<div id="status-message"></div>
-</div>
+<div id="status-message" role="status" aria-live="polite"></div>
 <script src="../js/popup.js"></script>
 </body>
 </html>

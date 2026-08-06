@@ -1,71 +1,92 @@
+let statusMessageTimeout = null;
+
+
 document.getElementById('reset-cache').addEventListener('click', async function () {
-    this.classList.add('clicked');
-    let response = await chrome.runtime.sendMessage({ action: "resetCache" });
-    if (response.status === 1) {
-        showStatusMessage("Cache reset successful 🎉", "success-message");
-    }
-    else {
-        showStatusMessage("Cache reset failed 😞: " + response.errorMsg, "error-message");
+    animateButton(this);
+    try {
+        const response = await chrome.runtime.sendMessage({action: "resetCache"});
+        if (response?.status === 1) {
+            showStatusMessage("Cache reset successful 🎉", "success-message");
+        } else {
+            showStatusMessage(`Cache reset failed 😞: ${response?.errorMsg || "Unknown error"}`, "error-message");
+        }
+    } catch (error) {
+        showStatusMessage(`Cache reset failed 😞: ${error.message}`, "error-message");
     }
 });
 
-// Load and save the hide books links setting
-document.addEventListener('DOMContentLoaded', async function() {
-    // Load current setting
-    const result = await chrome.storage.sync.get(['hideBooksLinks']);
+
+document.addEventListener('DOMContentLoaded', async () => {
     const toggleButton = document.getElementById('toggle-books-links');
-    const isHidden = result.hideBooksLinks || false;
-    
-    // Set initial button state
-    updateToggleButtonState(toggleButton, isHidden);
-    
-    // Handle toggle button clicks
-    toggleButton.addEventListener('click', async function() {
-        this.classList.add('clicked');
-        
-        const currentlyHidden = this.classList.contains('pressed');
-        const newState = !currentlyHidden;
-        
-        // Save new setting
-        await chrome.storage.sync.set({ hideBooksLinks: newState });
-        
-        // Update button appearance
-        updateToggleButtonState(this, newState);
-        
-        // Send message to content script to apply/remove hiding
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-                action: 'toggleBooksLinks',
-                hide: newState
-            });
-        });
-        
-        showStatusMessage(
-            newState ? "Books links hidden" : "Books links shown", 
-            "success-message"
-        );
+    try {
+        const result = await chrome.storage.sync.get(['hideBooksLinks']);
+        updateToggleButtonState(toggleButton, Boolean(result.hideBooksLinks));
+    } catch (error) {
+        showStatusMessage(`Could not load setting: ${error.message}`, "error-message");
+    }
+
+    toggleButton.addEventListener('click', async function () {
+        animateButton(this);
+        const newState = !this.classList.contains('pressed');
+
+        try {
+            await chrome.storage.sync.set({hideBooksLinks: newState});
+            updateToggleButtonState(this, newState);
+            await notifyActiveTab(newState);
+            showStatusMessage(
+                newState ? "Books links hidden" : "Books links shown",
+                "success-message"
+            );
+        } catch (error) {
+            showStatusMessage(`Could not save setting: ${error.message}`, "error-message");
+        }
     });
 });
 
-function updateToggleButtonState(button, isPressed) {
-    if (isPressed) {
-        button.classList.add('pressed');
-        button.textContent = 'Show Books Links';
-    } else {
-        button.classList.remove('pressed');
-        button.textContent = 'Hide Books Links';
+
+async function notifyActiveTab(hide) {
+    const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
+    if (!activeTab?.id) {
+        return;
+    }
+
+    try {
+        await chrome.tabs.sendMessage(activeTab.id, {
+            action: 'toggleBooksLinks',
+            hide
+        });
+    } catch (_error) {
+        // The global setting is still saved when the active tab is not a supported Rutgers page.
     }
 }
 
+
+function animateButton(button) {
+    button.classList.remove('clicked');
+    requestAnimationFrame(() => button.classList.add('clicked'));
+    button.addEventListener('animationend', () => button.classList.remove('clicked'), {once: true});
+}
+
+
+function updateToggleButtonState(button, isPressed) {
+    button.classList.toggle('pressed', isPressed);
+    button.textContent = isPressed ? 'Show Books Links' : 'Hide Books Links';
+    button.setAttribute('aria-pressed', String(isPressed));
+}
+
+
 function showStatusMessage(message, messageClass) {
-    let statusDiv = document.getElementById('status-message');
+    const statusDiv = document.getElementById('status-message');
     statusDiv.textContent = message;
     statusDiv.classList.remove('success-message', 'error-message');
     statusDiv.classList.add(messageClass);
     statusDiv.style.display = "block";
-    
-    // Hide message after 2 seconds
-    setTimeout(() => {
+
+    if (statusMessageTimeout !== null) {
+        clearTimeout(statusMessageTimeout);
+    }
+    statusMessageTimeout = setTimeout(() => {
         statusDiv.style.display = "none";
-    }, 2000);
+        statusMessageTimeout = null;
+    }, 2_000);
 }

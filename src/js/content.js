@@ -3,23 +3,21 @@ const isCSP = currentPage.includes("/csp/");
 const isSOC = currentPage.includes("/soc/");
 const isOldSOC = currentPage.includes("/oldsoc/");
 const isWebReg = currentPage.includes("/webreg/");
+let booksLinksObserver = null;
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === 'toggleBooksLinks') {
-        toggleBooksLinksVisibility(message.hide);
+        setBooksLinksVisibility(Boolean(message.hide));
         sendResponse({ success: true });
     }
 });
 
-// Initialize books links visibility on page load
-document.addEventListener('DOMContentLoaded', initializeBooksLinksVisibility);
-
-// Also initialize when page is fully loaded (fallback)
-window.addEventListener('load', initializeBooksLinksVisibility);
-
-// Initialize immediately as well
-initializeBooksLinksVisibility();
+if (document.readyState === "loading") {
+    document.addEventListener('DOMContentLoaded', initializeBooksLinksVisibility, {once: true});
+} else {
+    initializeBooksLinksVisibility();
+}
 
 
 if (isCSP) {
@@ -87,18 +85,14 @@ async function addRatingToInstructorElements(elementWithCourseName) {
 }
 
 /**
- * Asynchronously adds a webreg link to index elements
+ * Adds a WebReg link to index elements.
  *
  * @param {HTMLElement} elementWithCourseName - Optionally null. The element containing the course name.
  */
-async function addWebregLinkToIndexElements(elementWithCourseName) {
+function addWebregLinkToIndexElements(elementWithCourseName) {
     try {
         const indexElements = extractIndexElements(elementWithCourseName);
-        //instead of using a for loop, we use Promise.all to and all webreg links to index elements concurrently
-        const promises = indexElements.map((indexElement) =>
-            addWebregLinkToIndexElement(indexElement)
-        );
-        await Promise.all(promises);
+        indexElements.forEach(addWebregLinkToIndexElement);
     } catch (error) {
         console.error(error);
     }
@@ -154,7 +148,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
                     initializedBubbles.add(instructorNames[i + 1]);
                 }
                 populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
-                ratingBubbleElem.classList.remove('pulsating');
+                ratingBubbleElem.classList.remove('jmp-pulsating');
                 i += 1;
             }
             //if both names given and data is unavailable
@@ -162,7 +156,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
                 try {
                     response = await fetchProfStats(instructorNames[i], matchText);
                     populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
-                    ratingBubbleElem.classList.remove('pulsating');
+                    ratingBubbleElem.classList.remove('jmp-pulsating');
                 } catch (error) {
                     convertToErrorBubble(ratingBubbleElem, error);
                 }
@@ -179,7 +173,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             fetchProfStats(instructorName, matchText)
                 .then(response => {
                     populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorName);
-                    ratingBubbleElem.classList.remove('pulsating');
+                    ratingBubbleElem.classList.remove('jmp-pulsating');
                 })
                 .catch(error => {
                     convertToErrorBubble(ratingBubbleElem, error);
@@ -189,17 +183,22 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
 }
 
 /**
- * Adds a webreg link to an index element
+ * Adds a WebReg link to an index element.
  *
  * @param {Element} indexElement - The DOM element associated with the index.
  */
-async function addWebregLinkToIndexElement(indexElement) {
+function addWebregLinkToIndexElement(indexElement) {
     //get the year and season from the yearTermElement
-    const yearTermElement = document.querySelector('span[name="YearTerm"]').textContent;
-    const season = yearTermElement.split(' ')[0];
+    const yearTermElement = document.querySelector('span[name="YearTerm"]')?.textContent?.trim();
+    if (!yearTermElement) {
+        return;
+    }
+    const [season, year] = yearTermElement.split(/\s+/);
     const numericSeason = getNumericSeason(season);
-    const year = yearTermElement.split(' ')[1];
-    const index = indexElement.textContent;
+    const index = indexElement.textContent.trim();
+    if (!numericSeason || !year || !index) {
+        return;
+    }
     //display the index element as a flex container
     indexElement.style.display = 'flex';
     indexElement.style.flexDirection = 'column';
@@ -237,8 +236,13 @@ async function addWebregLinkToIndexElement(indexElement) {
     });    
     // Add click handler to open WebReg
     webregBubble.onclick = function() {
-        window.open(`http://sims.rutgers.edu/webreg/editSchedule.htm?login=cas&semesterSelection=${numericSeason}${year}&indexList=${index}`, '_blank',
-          'noopener,noreferrer');
+        const webregURL = new URL('https://sims.rutgers.edu/webreg/editSchedule.htm');
+        webregURL.search = new URLSearchParams({
+            login: 'cas',
+            semesterSelection: `${numericSeason}${year}`,
+            indexList: index
+        });
+        openInNewTab(webregURL.href);
     };    
     // Add the bubble to the index element
     indexElement.appendChild(webregBubble);
@@ -468,19 +472,7 @@ function initializeLoadingBubble(instructorElement) {
         ratingBubble.style.fontSize = `${getDynamicFontSize(instructorElement.textContent)}px`;
     }
 
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulsate {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.4); opacity: 0.8; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .pulsating {
-          animation: pulsate 2s infinite ease-in-out;
-        }
-    `;
-    document.head.appendChild(style);
-    ratingBubble.classList.add('pulsating');
+    ratingBubble.classList.add('jmp-pulsating');
 
     ratingBubble.addEventListener("mousedown", () => {
         ratingBubble.style.transform = "translateY(2px)";
@@ -501,9 +493,11 @@ function initializeLoadingBubble(instructorElement) {
  * @param {Error} error - The error to display details for.
  */
 function convertToErrorBubble(ratingBubbleElem, error) {
+    const errorMessage = typeof error?.message === "string" ? error.message : String(error);
+    const errorStack = typeof error?.stack === "string" ? error.stack : errorMessage;
     const errorMsgPopupElem = document.createElement("div");
     errorMsgPopupElem.className = "jmp-error-msg-popup";
-    errorMsgPopupElem.textContent = error.message;
+    errorMsgPopupElem.textContent = errorMessage;
     errorMsgPopupElem.style.maxWidth = `${window.innerWidth * 0.65}px`;
     ratingBubbleElem.textContent = "Error";
     ratingBubbleElem.style.backgroundColor = "lightgray";
@@ -518,40 +512,50 @@ function convertToErrorBubble(ratingBubbleElem, error) {
         errorMsgPopupElem.style.display = "none";
     });
 
-    ratingBubbleElem.onclick = function () {
-        let htmlContent = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Error Stack</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        pre {
-                            background-color: #f4f4f4;
-                            padding: 10px;
-                            border-radius: 5px;
-                            white-space: pre-wrap; 
-                            word-wrap: break-word;
-                            overflow-wrap: break-word; 
-                        }
-                    </style>
-                </head>
-                <body>
-                    <h2>Error Stack: </h2>
-                    <h4> (Try clearing extension cache to resolve any problems by clicking on the extension's icon) </h4>
-                    <h4> (Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub) </h4>
-                    <pre>${error.stack}</pre>
-               
-                </body>
-                </html>
-            `;
-        let blob = new Blob([htmlContent], {type: 'text/html'});
-        let url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-    };
-    ratingBubbleElem.classList.remove('pulsating');
+    ratingBubbleElem.onclick = () => openErrorDetails(errorStack);
+    ratingBubbleElem.classList.remove('jmp-pulsating');
+}
+
+
+function openErrorDetails(errorStack) {
+    const detailsDocument = document.implementation.createHTMLDocument("Error Stack");
+    detailsDocument.documentElement.lang = "en";
+
+    const viewport = detailsDocument.createElement("meta");
+    viewport.name = "viewport";
+    viewport.content = "width=device-width, initial-scale=1.0";
+    detailsDocument.head.appendChild(viewport);
+
+    const style = detailsDocument.createElement("style");
+    style.textContent = `
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+    `;
+    detailsDocument.head.appendChild(style);
+
+    const heading = detailsDocument.createElement("h2");
+    heading.textContent = "Error Stack";
+    const cacheHint = detailsDocument.createElement("p");
+    cacheHint.textContent = "Try resetting the extension cache from the extension popup.";
+    const contactHint = detailsDocument.createElement("p");
+    contactHint.textContent = "Please email persistent errors to techideas4me@gmail.com or raise an issue on GitHub.";
+    const stack = detailsDocument.createElement("pre");
+    stack.textContent = errorStack;
+    detailsDocument.body.append(heading, cacheHint, contactHint, stack);
+
+    const blob = new Blob([
+        "<!DOCTYPE html>",
+        detailsDocument.documentElement.outerHTML
+    ], {type: "text/html"});
+    const url = URL.createObjectURL(blob);
+    openInNewTab(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 
@@ -595,12 +599,15 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
     box.className = "jmp-box";
     details.className = "jmp-details";
 
-    if (!response || !response.data || profText === "") {
+    const professor = response?.data;
+    if (!professor || profText === "") {
         ratingBubbleElem.textContent = 'N/A';
-    } else if (response.data.numRatings === 0) {
+    } else if (professor.numRatings === 0) {
         ratingBubbleElem.textContent = 'X.X';
+    } else if (!Number.isFinite(professor.avgRating)) {
+        ratingBubbleElem.textContent = 'N/A';
     } else {
-        ratingBubbleElem.textContent = response.data.avgRating.toFixed(1);
+        ratingBubbleElem.textContent = professor.avgRating.toFixed(1);
     }
     cardRatingElem.textContent = ratingBubbleElem.textContent;
 
@@ -610,27 +617,35 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
         ratingBubbleElem.style.backgroundColor = ratingColor;
         cardRatingElem.style.backgroundColor = ratingColor;
 
-        cardProfName.textContent = response.data.firstName + " " + response.data.lastName;
-        cardProfDept.textContent = response.data.department;
-        reviewsLink.textContent = response.data.numRatings + " review(s)";
-        reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + response.data.legacyId;
+        cardProfName.textContent = `${professor.firstName} ${professor.lastName}`.trim();
+        cardProfDept.textContent = professor.department;
+        reviewsLink.textContent = professor.numRatings + " review(s)";
+        reviewsLink.href = "https://www.ratemyprofessors.com/professor/" + professor.legacyId;
         reviewsLink.target = "_blank";
-        cardDifficultyElem.textContent = "Level Of Difficulty: " + (response.data.numRatings > 0 ? response.data.avgDifficulty : "N/A");
-        cardWouldTakeAgainElem.textContent = "Would Take Again: " + (response.data.wouldTakeAgainPercent !== -1 ? String(Math.round((response.data.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100) + "%" : "N/A");
+        reviewsLink.rel = "noopener noreferrer";
+        const difficulty = professor.numRatings > 0 && Number.isFinite(professor.avgDifficulty)
+            ? professor.avgDifficulty
+            : "N/A";
+        const wouldTakeAgain = Number.isFinite(professor.wouldTakeAgainPercent)
+            && professor.wouldTakeAgainPercent >= 0
+            ? `${Math.round((professor.wouldTakeAgainPercent + Number.EPSILON) * 100) / 100}%`
+            : "N/A";
+        cardDifficultyElem.textContent = `Level Of Difficulty: ${difficulty}`;
+        cardWouldTakeAgainElem.textContent = `Would Take Again: ${wouldTakeAgain}`;
 
         // Add magnifying glass button to the card
-        searchButtonElem.innerHTML = '&#x1F50D;'; // Magnifying glass Unicode character
+        searchButtonElem.textContent = '🔍';
         searchButtonElem.title = `Search Google for "${profText}"`;
         searchButtonElem.onclick = function (event) {
             event.stopPropagation(); // Prevent card click event
             const query = encodeURIComponent(`${profText} Rutgers RateMyProfessors`);
-            window.open(`https://www.google.com/search?q=${query}`, '_blank');
+            openInNewTab(`https://www.google.com/search?q=${query}`);
         };
         popupCard.appendChild(searchButtonElem);
 
 
         ratingBubbleElem.onclick = function () {
-            window.open(reviewsLink.href, '_blank');
+            openInNewTab(reviewsLink.href);
         };
 
         //rating bubble onHover listeners to display popup card
@@ -698,11 +713,11 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
 
         if (profText === "") {
             ratingBubbleElem.onclick = function () {
-                window.open("https://www.google.com/search?q=🗿", '_blank');
+                openGoogleSearch("🗿");
             };
         } else {
             ratingBubbleElem.onclick = function () {
-                window.open("https://www.google.com/search?q=" + profText + "+Rutgers+RateMyProfessors", '_blank');
+                openGoogleSearch(`${profText} Rutgers RateMyProfessors`);
             };
         }
         ratingBubbleElem.addEventListener("mouseover", () => {
@@ -735,16 +750,22 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
  * @returns {Promise<Object>} A promise that resolves with the fetched data or rejects with an error.
  */
 async function fetchProfStats(profName, matchText) {
-    return await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
             action: 'fetchProfStats',
             matchText: matchText,
             profName: profName
         }, response => {
             if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
+                reject(new Error(chrome.runtime.lastError.message));
+            } else if (!response) {
+                reject(new Error("The extension background service did not respond."));
             } else if (response.error) {
-                reject(response.error);
+                const error = new Error(response.error.message || "Professor lookup failed.");
+                if (response.error.stack) {
+                    error.stack = response.error.stack;
+                }
+                reject(error);
             } else {
                 resolve(response);
             }
@@ -829,38 +850,38 @@ function getRatingColor(rating) {
 async function initializeBooksLinksVisibility() {
     try {
         const result = await chrome.storage.sync.get(['hideBooksLinks']);
-        if (result.hideBooksLinks) {
-            toggleBooksLinksVisibility(true);
-            
-            // Set up observer for dynamically added content
-            setupBooksLinksObserver();
-        }
+        setBooksLinksVisibility(Boolean(result.hideBooksLinks));
     } catch (error) {
         console.log('Could not load books links setting:', error);
     }
 }
 
 /**
- * Set up MutationObserver to hide books links in dynamically loaded content
+ * Applies the current setting and keeps exactly one observer for dynamic content.
  */
-function setupBooksLinksObserver() {
-    const observer = new MutationObserver(mutations => {
+function setBooksLinksVisibility(hide) {
+    toggleBooksLinksVisibility(hide);
+
+    booksLinksObserver?.disconnect();
+    booksLinksObserver = null;
+    if (!hide || !document.body) {
+        return;
+    }
+
+    booksLinksObserver = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Check if the added node or its children contain books links
                         const booksLinks = node.matches?.('.books') ? [node] : node.querySelectorAll?.('.books') || [];
-                        booksLinks.forEach(link => {
-                            link.style.visibility = 'hidden';
-                        });
+                        booksLinks.forEach(link => link.classList.add('jmp-books-link-hidden'));
                     }
                 });
             }
         });
     });
-    
-    observer.observe(document.body, {
+
+    booksLinksObserver.observe(document.body, {
         childList: true,
         subtree: true
     });
@@ -873,6 +894,21 @@ function setupBooksLinksObserver() {
 function toggleBooksLinksVisibility(hide) {
     const booksLinks = document.querySelectorAll('.books');
     booksLinks.forEach(link => {
-        link.style.visibility = hide ? 'hidden' : 'visible';
+        link.classList.toggle('jmp-books-link-hidden', hide);
     });
+}
+
+
+function openGoogleSearch(query) {
+    const searchURL = new URL("https://www.google.com/search");
+    searchURL.search = new URLSearchParams({q: query});
+    openInNewTab(searchURL.href);
+}
+
+
+function openInNewTab(url) {
+    const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    if (openedWindow) {
+        openedWindow.opener = null;
+    }
 }

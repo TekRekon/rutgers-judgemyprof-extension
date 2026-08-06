@@ -1,405 +1,636 @@
 importScripts("./constants.js", "./fuse.js");
 
 
+const CACHE_KEY_PREFIX = "professor:";
+const CACHE_TIMESTAMP_KEY = "cacheTimestamp";
+const CACHE_SCHEMA_KEY = "cacheSchemaVersion";
+const SEARCH_SCHOOL_LIMIT = 5;
+const SEARCH_RESULTS_PER_SCHOOL = 20;
+const ERROR_RESPONSE_MAX_BYTES = 4_096;
+const ERROR_REASON_MAX_LENGTH = 160;
+
+const STOP_WORDS = new Set([
+    "the", "and", "or", "of", "in", "for", "to", "a", "an", "is", "at", "by", "on", "with"
+]);
+
+const ABBREVIATIONS = Object.freeze({
+    cs: "computer science",
+    cse: "computer science engineering",
+    ee: "electrical engineering",
+    me: "mechanical engineering",
+    ce: "civil engineering",
+    bio: "biology",
+    chem: "chemistry",
+    phys: "physics",
+    math: "mathematics",
+    stats: "statistics",
+    econ: "economics",
+    psych: "psychology",
+    phil: "philosophy",
+    hist: "history",
+    lit: "literature",
+    eng: "english",
+    mgmt: "management",
+    bus: "business",
+    acct: "accounting",
+    fin: "finance",
+    mkt: "marketing",
+    ops: "operations",
+    sci: "science",
+    tech: "technology",
+    info: "information",
+    sys: "systems",
+    dev: "development",
+    prog: "programming",
+    lang: "language",
+    comm: "communications",
+    med: "medicine",
+    health: "health",
+    env: "environmental",
+    soc: "sociology",
+    anth: "anthropology",
+    geo: "geography",
+    poli: "political",
+    govt: "government",
+    admin: "administration",
+    edu: "education",
+    relig: "religion",
+    art: "arts",
+    mus: "music",
+    thea: "theater",
+    calc: "calculus"
+});
+
+const originalDepartmentByAlias = new Map(
+    Object.entries(departmentAliases).map(([department, alias]) => [alias, department])
+);
+
 let filteredProfStats = new Map();
-let profStatsCache = new Map();
-let profIDCache = new Map();
-let fetchPromises = {
-    profID: {},
-    profStats: {},
-    mostLikelyProf: {}
-};
+let professorSearchCache = new Map();
+let fetchPromises = createFetchPromiseMaps();
+let cacheGeneration = 0;
+let activeApiRequests = 0;
+const queuedApiRequests = [];
+const cacheReady = initializeCache();
 
 
-/**
- * Adds a listener to handle messages for fetching professor stats or resetting caches.
- * Always returns true to indicate asynchronous response handling via sendResponse.
- */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'fetchProfStats') {
-        fetchMostLikelyProfessorID(request.profName, request.matchText)
-            .then(profStats => {
-                sendResponse({data: profStats});
-            })
-            .catch(error => {
-                sendResponse({
-                    error: {
-                        message: error.message,
-                        stack: error.stack
-                    }
-                });
-            });
-    } else if (request.action === 'resetCache') {
-        try {
-            filteredProfStats.clear();
-            profStatsCache.clear();
-            profIDCache.clear();
-            fetchPromises = {
-                profID: {},
-                profStats: {},
-                mostLikelyProf: {}
-            };
-            chrome.storage.local.clear();
-            sendResponse({status: 1});
-        } catch (error) {
-            sendResponse({status: 0, errorMsg: error.message});
-        }
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (!request || typeof request.action !== "string") {
+        return false;
     }
-    return true;
+
+    if (request.action === "fetchProfStats") {
+        handleFetchStatsRequest(request)
+            .then(profStats => sendResponse({data: profStats}))
+            .catch(error => sendResponse({error: serializeError(error)}));
+        return true;
+    }
+
+    if (request.action === "resetCache") {
+        resetCache()
+            .then(() => sendResponse({status: 1}))
+            .catch(error => sendResponse({status: 0, errorMsg: getErrorMessage(error)}));
+        return true;
+    }
+
+    return false;
 });
 
 
+function createFetchPromiseMaps() {
+    return {
+        professorSearch: new Map(),
+        mostLikelyProfessor: new Map()
+    };
+}
+
+
+async function handleFetchStatsRequest(request) {
+    await cacheReady;
+    const profName = typeof request.profName === "string" ? request.profName.trim() : "";
+    const matchText = typeof request.matchText === "string" ? request.matchText.trim() : "";
+    return fetchMostLikelyProfessor(profName, matchText);
+}
+
+
+async function resetCache() {
+    await cacheReady;
+    cacheGeneration += 1;
+    filteredProfStats.clear();
+    professorSearchCache.clear();
+    fetchPromises = createFetchPromiseMaps();
+
+    await chrome.storage.local.clear();
+    await chrome.storage.local.set(createCacheMetadata());
+}
+
+
 /**
- * Identifies and caches the most likely professor ID based on name and optional match text.
- * Professors spread out across multiple schools in RateMyProfessors, so search 5 most popular schools for now.
- * Returns cached results if found and caches results in Chrome local storage if not null and a department exists.
- * If a similar request is pending, returns the existing promise instead of duplicating requests.
+ * Finds the most likely RateMyProfessors record for a Rutgers instructor.
+ * Five school searches run concurrently, while apiFetch enforces a global network concurrency cap.
  *
- * @param {string} profName - The name of the professor to search for.
- * @param {string} [matchText=""] - Optional text (usually consisting of course+subject name) to match against professor's department for finer filtering.
- * @returns {Promise<Object|null>} - A promise that resolves to the most likely professor's stats object, or null if not found.
+ * @param {string} profName - Instructor name from the Rutgers page.
+ * @param {string} [matchText=""] - Course and subject text used to compare departments.
+ * @returns {Promise<Object|null>} The selected professor record, or null when no record matches.
  */
-async function fetchMostLikelyProfessorID(profName, matchText = "") {
-    if (profName === "") {
+async function fetchMostLikelyProfessor(profName, matchText = "") {
+    if (!profName) {
         return null;
     }
-    const cacheKey = `${profName}_${matchText}`;
+
+    const cacheKey = makeProfessorCacheKey(profName, matchText);
     if (filteredProfStats.has(cacheKey)) {
         return filteredProfStats.get(cacheKey);
     }
 
-    return fetchPromises.mostLikelyProf[cacheKey] ||= (async () => {
-        let profMap = new Map();
+    const existingPromise = fetchPromises.mostLikelyProfessor.get(cacheKey);
+    if (existingPromise) {
+        return existingPromise;
+    }
 
-        // 1) Fetch professor stats from the 5 most popular schools
-        for (let i = 0; i < 5; i++) {
-            let profIDs = await fetchProfessorID(profName, SCHOOLS[i][0], 20);
-            if (!profIDs) continue;
+    const generation = cacheGeneration;
+    const promise = (async () => {
+        const settledSchoolResults = await Promise.allSettled(
+            SCHOOLS.slice(0, SEARCH_SCHOOL_LIMIT).map(([schoolID]) =>
+                fetchProfessorCandidates(profName, schoolID, SEARCH_RESULTS_PER_SCHOOL)
+            )
+        );
+        const schoolResults = settledSchoolResults
+            .filter(result => result.status === "fulfilled")
+            .map(result => result.value);
+        if (schoolResults.length === 0) {
+            throw settledSchoolResults[0]?.reason ?? new Error("All professor searches failed");
+        }
+        const allSchoolsSucceeded = schoolResults.length === settledSchoolResults.length;
 
-            for (let prof of profIDs) {
-                let profID = prof.node.id;
-                let profStats = await fetchProfessorStats(profID);
-                if (!profStats) continue;
-
-                let searchNames = profName.replace(/[^a-zA-Z\s]+/g, '').trim().toLowerCase().split(/\s+/);
-                let foundFirstName = profStats.firstName.replace(/[^a-zA-Z]/g, '').trim().toLowerCase() || "+++"; //default to "+++" if no first name to avoid matching with empty string
-                let foundLastName = profStats.lastName.replace(/[^a-zA-Z]/g, '').trim().toLowerCase() || "+++";
-
-                if (searchNames.length === 1) {
-                    let name = searchNames[0];
-                    if (name.includes(foundFirstName) || name.includes(foundLastName) ||
-                        foundFirstName.includes(name) || foundLastName.includes(name)) {
-                        profMap.set(profID, profStats);
-                    }
-                } else if (searchNames.length > 1) {
-                    let [firstName, lastName] = searchNames;
-                    if ((foundFirstName.includes(firstName) && foundLastName.includes(lastName)) ||
-                        (foundFirstName.includes(lastName) && foundLastName.includes(firstName)) ||
-                        (firstName.includes(foundFirstName) && lastName.includes(foundLastName)) ||
-                        (firstName.includes(foundLastName) && lastName.includes(foundFirstName))) {
-                        profMap.set(profID, profStats);
-                    }
+        const professorsByID = new Map();
+        for (const professors of schoolResults) {
+            for (const professor of professors) {
+                if (professorNameMatches(profName, professor)) {
+                    professorsByID.set(professor.id, professor);
                 }
             }
         }
 
-        if (profMap.size === 0) {
-            return null;
+        const selectedProfessor = selectMostLikelyProfessor(
+            Array.from(professorsByID.values()),
+            matchText
+        );
+
+        if (selectedProfessor && allSchoolsSucceeded && generation === cacheGeneration) {
+            filteredProfStats.set(cacheKey, selectedProfessor);
+            if (selectedProfessor.department) {
+                await chrome.storage.local.set({
+                    [`${CACHE_KEY_PREFIX}${cacheKey}`]: selectedProfessor
+                });
+            }
         }
 
-        if (profMap.size === 1) {
-            let firstValue = profMap.values().next().value;
-            filteredProfStats.set(cacheKey, firstValue);
-            return firstValue;
+        return selectedProfessor;
+    })();
+
+    fetchPromises.mostLikelyProfessor.set(cacheKey, promise);
+    const removePendingPromise = () => {
+        if (fetchPromises.mostLikelyProfessor.get(cacheKey) === promise) {
+            fetchPromises.mostLikelyProfessor.delete(cacheKey);
         }
+    };
+    promise.then(removePendingPromise, removePendingPromise);
+    return promise;
+}
 
-        //2) Select professors that are tied in terms of whose department matches most closely to the matchText
-        const profDepartments = [];
-        profMap.forEach((value, key) => {
-            value.department = fetchAlias(value.department, false);
-            profDepartments.push(value.department);
 
+/**
+ * Searches one RMP school and returns complete professor records directly from the search query.
+ * This avoids the previous extra request for every returned professor ID.
+ */
+async function fetchProfessorCandidates(profName, schoolID, first) {
+    const cacheKey = JSON.stringify([normalizeName(profName), schoolID, first]);
+    if (professorSearchCache.has(cacheKey)) {
+        return professorSearchCache.get(cacheKey);
+    }
+
+    const existingPromise = fetchPromises.professorSearch.get(cacheKey);
+    if (existingPromise) {
+        return existingPromise;
+    }
+
+    const generation = cacheGeneration;
+    const promise = apiFetch(ProfessorSearchQuery, {text: profName, schoolID, first})
+        .then(data => {
+            const edges = data.data?.newSearch?.teachers?.edges ?? [];
+            const professors = edges
+                .map(edge => normalizeProfessorStats(edge?.node))
+                .filter(Boolean);
+
+            if (generation === cacheGeneration) {
+                professorSearchCache.set(cacheKey, professors);
+            }
+            return professors;
         });
-        const fuse = new Fuse(profDepartments, FUSE_OPTIONS);
-        // Preprocess the matchText for better fuzzy search results
-        const preprocessedMatchText = preprocessSearchText(matchText);
-        const result = fuse.search(preprocessedMatchText);
 
-        if (result.length !== 0) {
-            const lowestScore = result[0].score;
-            const departmentsWithLowestScore = new Set();
-
-            result.forEach(item => {
-                if (item.score === lowestScore) {
-                    departmentsWithLowestScore.add(item.item);
-                }
-            });
-
-            profMap.forEach((value, key) => {
-                if (!departmentsWithLowestScore.has(value.department)) {
-                    profMap.delete(key);
-                }
-            });
+    fetchPromises.professorSearch.set(cacheKey, promise);
+    const removePendingPromise = () => {
+        if (fetchPromises.professorSearch.get(cacheKey) === promise) {
+            fetchPromises.professorSearch.delete(cacheKey);
         }
+    };
+    promise.then(removePendingPromise, removePendingPromise);
+    return promise;
+}
 
-        //3) Select professor with  most ratings
-        let maxProfID = null;
-        let maxRatings = -1;
-        for (const [key, value] of profMap) {
-            if (value.numRatings > maxRatings) {
-                maxRatings = value.numRatings;
-                maxProfID = key;
-            }
+
+function normalizeProfessorStats(professor) {
+    if (!professor || typeof professor.id !== "string") {
+        return null;
+    }
+
+    const avgRating = toFiniteNumber(professor.avgRating);
+    const numRatings = toFiniteNumber(professor.numRatings);
+    const avgDifficulty = toFiniteNumber(professor.avgDifficulty);
+    const wouldTakeAgainPercent = toFiniteNumber(professor.wouldTakeAgainPercent);
+
+    return {
+        ...professor,
+        firstName: typeof professor.firstName === "string" ? professor.firstName.trim() : "",
+        lastName: typeof professor.lastName === "string" ? professor.lastName.trim() : "",
+        department: typeof professor.department === "string" ? professor.department.trim() : "",
+        avgRating: avgRating === null ? null : Math.min(5, Math.max(0, avgRating)),
+        numRatings: numRatings === null ? 0 : Math.max(0, numRatings),
+        avgDifficulty,
+        wouldTakeAgainPercent: wouldTakeAgainPercent ?? -1
+    };
+}
+
+
+function toFiniteNumber(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+
+function professorNameMatches(searchName, professor) {
+    const searchTokens = tokenizeName(searchName);
+    const firstNameTokens = tokenizeName(professor.firstName);
+    const lastNameTokens = tokenizeName(professor.lastName);
+    const foundNameTokens = [...firstNameTokens, ...lastNameTokens];
+
+    if (searchTokens.length === 0 || foundNameTokens.length === 0) {
+        return false;
+    }
+
+    if (searchTokens.length === 1) {
+        return foundNameTokens.some(token => namesOverlap(searchTokens[0], token));
+    }
+
+    const searchedFirstName = searchTokens[0];
+    const searchedLastName = searchTokens[searchTokens.length - 1];
+    const foundFirstName = firstNameTokens[0] ?? "";
+    const foundLastName = lastNameTokens[lastNameTokens.length - 1] ?? "";
+
+    return (
+        namesOverlap(searchedFirstName, foundFirstName) && namesOverlap(searchedLastName, foundLastName)
+    ) || (
+        namesOverlap(searchedFirstName, foundLastName) && namesOverlap(searchedLastName, foundFirstName)
+    );
+}
+
+
+function namesOverlap(left, right) {
+    return Boolean(left && right && (left.includes(right) || right.includes(left)));
+}
+
+
+function tokenizeName(name) {
+    const normalizedName = normalizeName(name);
+    return normalizedName ? normalizedName.split(" ") : [];
+}
+
+
+function normalizeName(name) {
+    if (typeof name !== "string") {
+        return "";
+    }
+
+    return name
+        .normalize("NFKD")
+        .replace(/\p{Mark}+/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{Letter}]+/gu, " ")
+        .trim()
+        .replace(/\s+/g, " ");
+}
+
+
+function selectMostLikelyProfessor(professors, matchText) {
+    if (professors.length === 0) {
+        return null;
+    }
+    if (professors.length === 1) {
+        return professors[0];
+    }
+
+    let candidates = professors;
+    const preprocessedMatchText = preprocessSearchText(matchText);
+    const comparableDepartments = professors.map(professor => fetchAlias(professor.department));
+
+    if (preprocessedMatchText && comparableDepartments.some(Boolean)) {
+        const results = new Fuse(comparableDepartments, FUSE_OPTIONS).search(preprocessedMatchText);
+        if (results.length > 0) {
+            const bestScore = results[0].score;
+            const bestDepartments = new Set(
+                results
+                    .filter(result => Math.abs(result.score - bestScore) < Number.EPSILON)
+                    .map(result => result.item)
+            );
+            candidates = professors.filter((_, index) => bestDepartments.has(comparableDepartments[index]));
         }
-        let maxProf = profMap.get(maxProfID);
-        maxProf.department = fetchAlias(maxProf.department, true);
-        //only save if all departments are known
-        if (Array.from(profMap.values()).every((value) => value.department !== "")) {
-            filteredProfStats.set(cacheKey, maxProf);
-            await chrome.storage.local.set({[`${profName}_${matchText}`]: maxProf});
-        }
-        return profMap.get(maxProfID);
-    })().finally(() => delete fetchPromises.mostLikelyProf[cacheKey]);
+    }
+
+    return candidates.reduce((best, professor) =>
+        professor.numRatings > best.numRatings ? professor : best
+    );
 }
 
 
 /**
- * Fetches and caches professor ID(s) based on name and school ID, with optional limit on results.
- * Caches non-null results. Returns cached ID(s) if available.
- * If a similar request is pending, returns the existing promise instead of duplicating requests.
- *
- * @param {string} profName - Name of the professor.
- * @param {string} schoolID - Identifier for the school.
- * @param {number} [first=1] - Optional limit on the number of results returned (default is 1).
- * @returns {Promise<Array|null>} - A promise resolving to an array of professor IDs or null if none found.
- */
-async function fetchProfessorID(profName, schoolID, first = 1) {
-    const cacheKey = `${profName}${schoolID}`;
-    if (profIDCache.has(cacheKey)) {
-        return profIDCache.get(cacheKey);
-    }
-    if (!fetchPromises.profID[cacheKey]) {
-        fetchPromises.profID[cacheKey] = apiFetch(ProfessorIDQuery, {text: profName, schoolID, first}).then(data => {
-            if (!(data.data.newSearch.teachers.edges.length === 0)) {
-                profIDCache.set(cacheKey, data.data.newSearch.teachers.edges);
-                return data.data.newSearch.teachers.edges;
-            }
-            return null;
-        }).finally(() => delete fetchPromises.profID[cacheKey]);
-    }
-    return fetchPromises.profID[cacheKey];
-}
-
-
-/**
- * Fetches and caches professor statistics by ID (retrieved from the fetchProfessorID function).
- * Returns cached data if available. Only caches non-null results.
- * If a similar request is pending, returns the existing promise instead of duplicating requests.
- * Occasionally, no department attribute is returned, in which case an empty department is assigned.
- *
- * @param {string} profID - The unique identifier for the professor.
- * @returns {Promise<Object|null>} - A promise that resolves to the professor stats object, or null if not found.
- */
-async function fetchProfessorStats(profID) {
-    if (profStatsCache.has(profID)) {
-        return profStatsCache.get(profID);
-    }
-    if (!fetchPromises.profStats[profID]) {
-        fetchPromises.profStats[profID] = apiFetch(ProfessorStatsQuery, {id: profID}).then(data => {
-            if (data.data.node) {
-                //capitalize first letter of first and possible last name, lowercase the rest
-                data.data.node.firstName = data.data.node.firstName.toLowerCase().replace(/\b[a-z]/g, letter => letter.toUpperCase());
-                data.data.node.lastName = data.data.node.lastName.toLowerCase().replace(/\b[a-z]/g, letter => letter.toUpperCase());
-                if (data.data.node.hasOwnProperty('avgRating') && data.data.node.avgRating > 5) {
-                    data.data.node.avgRating = 5;
-                }
-                if (!data.data.node.hasOwnProperty('department')) {
-                    data.data.node.department = "";
-                }
-                else {
-                    profStatsCache.set(profID, data.data.node);
-                }
-                return data.data.node;
-            }
-            return null;
-        }).finally(() => delete fetchPromises.profStats[profID]);
-    }
-    return fetchPromises.profStats[profID];
-}
-
-
-/**
- * Asynchronously fetches data from an API using a POST request.
- *
- * @param {string} query - The GraphQL query string.
- * @param {object} variables - The variables for the GraphQL query.
- * @returns {Promise<object>} The JSON response from the API.
- * @throws {Error} When the fetch operation fails
+ * Performs a JSON GraphQL request without sending the browser's RMP cookies.
+ * Retryable failures use bounded exponential backoff and respect Retry-After.
  */
 async function apiFetch(query, variables) {
-    try {
-        const response = await fetch(API_URL, {
-            method: "POST", headers: {Authorization: AUTHORIZATION_TOKEN}, body: JSON.stringify({query, variables})
-        });
-        if (!response.ok) {
-            throw new Error(`API fetch failed: code ${response.status}, ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        throw error;
-    }
-}
+    let lastNetworkError = null;
 
-
-/**
- * Preprocesses text for better fuzzy search matching by:
- * - Removing stop words
- * - Normalizing case and whitespace
- * - Expanding common abbreviations
- * - Removing numbers and special characters
- *
- * @param {string} text - The text to preprocess
- * @returns {string} - The preprocessed text
- */
-function preprocessSearchText(text) {
-    if (!text || typeof text !== 'string') {
-        return '';
-    }
-
-    // Convert to lowercase and normalize whitespace
-    let processed = text.toLowerCase().trim();
-    
-    // Remove common stop words that don't help with matching
-    const stopWords = ['the', 'and', 'or', 'of', 'in', 'for', 'to', 'a', 'an', 'is', 'at', 'by', 'on', 'with'];
-    const stopWordsSet = new Set(stopWords);
-    
-    // Expand common abbreviations before tokenizing
-    const abbreviations = {
-        'cs': 'computer science',
-        'cse': 'computer science engineering',
-        'ee': 'electrical engineering',
-        'me': 'mechanical engineering',
-        'ce': 'civil engineering',
-        'bio': 'biology',
-        'chem': 'chemistry',
-        'phys': 'physics',
-        'math': 'mathematics',
-        'stats': 'statistics',
-        'econ': 'economics',
-        'psych': 'psychology',
-        'phil': 'philosophy',
-        'hist': 'history',
-        'lit': 'literature',
-        'eng': 'english',
-        'mgmt': 'management',
-        'bus': 'business',
-        'acct': 'accounting',
-        'fin': 'finance',
-        'mkt': 'marketing',
-        'ops': 'operations',
-        'sci': 'science',
-        'tech': 'technology',
-        'info': 'information',
-        'sys': 'systems',
-        'dev': 'development',
-        'prog': 'programming',
-        'lang': 'language',
-        'comm': 'communications',
-        'med': 'medicine',
-        'health': 'health',
-        'env': 'environmental',
-        'soc': 'sociology',
-        'anth': 'anthropology',
-        'geo': 'geography',
-        'poli': 'political',
-        'govt': 'government',
-        'admin': 'administration',
-        'edu': 'education',
-        'relig': 'religion',
-        'art': 'arts',
-        'mus': 'music',
-        'thea': 'theater',
-        'calc': 'calculus'
-    };
-
-    // Apply abbreviation expansions
-    for (const [abbrev, expansion] of Object.entries(abbreviations)) {
-        // Use word boundaries to avoid partial matches
-        const regex = new RegExp(`\\b${abbrev}\\b`, 'gi');
-        processed = processed.replace(regex, expansion);
-    }
-    
-    // Remove numbers, parentheses, and other non-alphabetic characters
-    processed = processed.replace(/[+0-9()]/g, ' ');
-    processed = processed.replace(/[^a-zA-Z ]/g, ' ');
-    
-    // Tokenize and filter stop words
-    const tokens = processed.split(/\s+/)
-        .filter(token => token.length > 0 && !stopWordsSet.has(token));
-    
-    // Remove duplicate tokens while preserving order
-    const uniqueTokens = [];
-    const seen = new Set();
-    for (const token of tokens) {
-        if (!seen.has(token)) {
-            uniqueTokens.push(token);
-            seen.add(token);
-        }
-    }
-    
-    // Rejoin tokens with single spaces
-    return uniqueTokens.join(' ').trim();
-}
-
-/**
- * Converts department names to their aliases and vice versa to improve accuracy in Fuse searches.
- * Utilizes a constants file that contains custom mappings between department names and their aliases.
- *
- * @param {string} departmentName - The department name or its alias, depending on the operation direction.
- * @param {boolean} [backToOriginal=false] - Specifies the direction of conversion:
- *                                           true to convert an alias back to the original department name,
- *                                           false to convert a department name to its alias.
- * @returns {string} - The original department or its alias, depending on the operation direction.
- */
-function fetchAlias(departmentName, backToOriginal = false) {
-    if (backToOriginal) {
-        for (let key in departmentAliases) {
-            if (departmentAliases[key] === departmentName) {
-                return key;
+    for (let attempt = 0; attempt <= MAX_FETCH_RETRIES; attempt += 1) {
+        let response;
+        try {
+            response = await fetchWithTimeout(query, variables);
+        } catch (error) {
+            lastNetworkError = error;
+            if (attempt < MAX_FETCH_RETRIES) {
+                await delay(getRetryDelay(null, attempt));
+                continue;
             }
+            const detail = error?.name === "AbortError"
+                ? `request timed out after ${FETCH_TIMEOUT_MS}ms`
+                : getErrorMessage(error);
+            throw new Error(`API fetch failed: could not reach RateMyProfessors (${detail})`);
         }
-        return departmentName;
-    } else {
-        if (!departmentAliases.hasOwnProperty(departmentName)) {
-            return departmentName;
+
+        if (!response.ok && RETRYABLE_STATUS_CODES.has(response.status) && attempt < MAX_FETCH_RETRIES) {
+            const retryDelay = getRetryDelay(response, attempt);
+            await cancelResponseBody(response);
+            await delay(retryDelay);
+            continue;
         }
-        return departmentAliases[departmentName];
+
+        if (!response.ok) {
+            const reason = await readErrorReason(response);
+            throw new Error(`API fetch failed: code ${response.status}${reason ? `, ${reason}` : ""}`);
+        }
+
+        let data;
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error(`API fetch failed: invalid JSON response (${getErrorMessage(error)})`);
+        }
+
+        const graphqlErrors = Array.isArray(data?.errors)
+            ? data.errors.map(error => error?.message).filter(Boolean)
+            : [];
+        if (graphqlErrors.length > 0) {
+            throw new Error(`API fetch failed: ${graphqlErrors.join("; ")}`);
+        }
+        if (!data || !Object.prototype.hasOwnProperty.call(data, "data")) {
+            throw new Error("API fetch failed: no data returned");
+        }
+
+        return data;
+    }
+
+    throw lastNetworkError ?? new Error("API fetch failed");
+}
+
+
+function fetchWithTimeout(query, variables) {
+    return runWithApiSlot(async () => {
+        const controller = new AbortController();
+        const timeoutID = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+            return await fetch(API_URL, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                credentials: "omit",
+                signal: controller.signal,
+                body: JSON.stringify({query, variables})
+            });
+        } finally {
+            clearTimeout(timeoutID);
+        }
+    });
+}
+
+
+function runWithApiSlot(operation) {
+    return new Promise((resolve, reject) => {
+        const execute = () => {
+            activeApiRequests += 1;
+            Promise.resolve()
+                .then(operation)
+                .then(resolve, reject)
+                .finally(() => {
+                    activeApiRequests -= 1;
+                    queuedApiRequests.shift()?.();
+                });
+        };
+
+        if (activeApiRequests < MAX_CONCURRENT_API_REQUESTS) {
+            execute();
+        } else {
+            queuedApiRequests.push(execute);
+        }
+    });
+}
+
+
+function getRetryDelay(response, attempt) {
+    const retryAfter = response?.headers?.get("Retry-After");
+    if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const retryAt = Date.parse(retryAfter);
+        const milliseconds = Number.isFinite(seconds)
+            ? seconds * 1_000
+            : retryAt - Date.now();
+        if (Number.isFinite(milliseconds) && milliseconds >= 0) {
+            return Math.min(milliseconds, FETCH_RETRY_MAX_DELAY_MS);
+        }
+    }
+
+    const exponentialDelay = FETCH_RETRY_BASE_DELAY_MS * (2 ** attempt);
+    const jitter = 0.75 + (Math.random() * 0.5);
+    return Math.min(Math.round(exponentialDelay * jitter), FETCH_RETRY_MAX_DELAY_MS);
+}
+
+
+async function cancelResponseBody(response) {
+    try {
+        await response.body?.cancel();
+    } catch (_error) {
+        // The connection is already closed; there is nothing else to release.
     }
 }
 
 
-/**
- * Initializes the cache by fetching from Chrome local storage and storing it in the filteredProfStats map.
- * If the cache is older than 3 weeks, it is cleared and the cacheTimestamp is updated.
- */
+async function readErrorReason(response) {
+    try {
+        const text = await readResponsePrefix(response, ERROR_RESPONSE_MAX_BYTES);
+        const title = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+        return sanitizeErrorReason(title || text).slice(0, ERROR_REASON_MAX_LENGTH);
+    } catch (_error) {
+        return "";
+    }
+}
+
+
+async function readResponsePrefix(response, maxBytes) {
+    if (!response.body?.getReader) {
+        return (await response.text()).slice(0, maxBytes);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let byteCount = 0;
+    let text = "";
+
+    try {
+        while (byteCount < maxBytes) {
+            const {done, value} = await reader.read();
+            if (done) {
+                break;
+            }
+            const remaining = maxBytes - byteCount;
+            const chunk = value.byteLength > remaining ? value.slice(0, remaining) : value;
+            byteCount += chunk.byteLength;
+            text += decoder.decode(chunk, {stream: byteCount < maxBytes});
+        }
+    } finally {
+        await reader.cancel().catch(() => {});
+    }
+
+    return text + decoder.decode();
+}
+
+
+function sanitizeErrorReason(reason) {
+    const decoded = reason
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&quot;/gi, "\"")
+        .replace(/&#0*39;|&apos;/gi, "'")
+        .replace(/&amp;/gi, "&");
+
+    return decoded
+        .replace(/<[^>]*>/g, " ")
+        .replace(/[<>\u0000-\u001F\u007F]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+
+function delay(milliseconds) {
+    if (milliseconds <= 0) {
+        return Promise.resolve();
+    }
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+
+function preprocessSearchText(text) {
+    if (typeof text !== "string" || !text.trim()) {
+        return "";
+    }
+
+    let processed = normalizeName(text);
+    for (const [abbreviation, expansion] of Object.entries(ABBREVIATIONS)) {
+        processed = processed.replace(new RegExp(`\\b${abbreviation}\\b`, "g"), expansion);
+    }
+
+    const seen = new Set();
+    return processed
+        .split(/\s+/)
+        .filter(token => token && !STOP_WORDS.has(token))
+        .filter(token => {
+            if (seen.has(token)) {
+                return false;
+            }
+            seen.add(token);
+            return true;
+        })
+        .join(" ");
+}
+
+
+function fetchAlias(departmentName, backToOriginal = false) {
+    if (typeof departmentName !== "string") {
+        return "";
+    }
+    if (backToOriginal) {
+        return originalDepartmentByAlias.get(departmentName) ?? departmentName;
+    }
+    return Object.prototype.hasOwnProperty.call(departmentAliases, departmentName)
+        ? departmentAliases[departmentName]
+        : departmentName;
+}
+
+
+function makeProfessorCacheKey(profName, matchText) {
+    return JSON.stringify([normalizeName(profName), preprocessSearchText(matchText)]);
+}
+
+
+function createCacheMetadata() {
+    return {
+        [CACHE_TIMESTAMP_KEY]: Date.now(),
+        [CACHE_SCHEMA_KEY]: CACHE_SCHEMA_VERSION
+    };
+}
+
+
 async function initializeCache() {
     try {
-        await chrome.storage.local.get(null, function (items) {
-            const threeWeeks = 3 * 7 * 24 * 60 * 60 * 1000; // milliseconds
-            if (!items || !items.cacheTimestamp || (Date.now() - items.cacheTimestamp > threeWeeks)) {
-                chrome.storage.local.clear();
-                chrome.storage.local.set({'cacheTimestamp': Date.now()});
-            } else {
-                for (let key in items) {
-                    if (key !== 'cacheTimestamp') {
-                        filteredProfStats.set(key, items[key]);
-                    }
-                }
+        const items = await chrome.storage.local.get(null);
+        const cacheIsCurrent = items?.[CACHE_SCHEMA_KEY] === CACHE_SCHEMA_VERSION;
+        const cacheIsFresh = Number.isFinite(items?.[CACHE_TIMESTAMP_KEY])
+            && Date.now() - items[CACHE_TIMESTAMP_KEY] <= CACHE_MAX_AGE_MS;
+
+        if (!cacheIsCurrent || !cacheIsFresh) {
+            await chrome.storage.local.clear();
+            await chrome.storage.local.set(createCacheMetadata());
+            return;
+        }
+
+        for (const [key, value] of Object.entries(items)) {
+            if (key.startsWith(CACHE_KEY_PREFIX)) {
+                filteredProfStats.set(key.slice(CACHE_KEY_PREFIX.length), value);
             }
-        });
+        }
     } catch (error) {
-        //pass
+        console.warn("Could not initialize professor cache:", error);
     }
 }
 
-initializeCache();
+
+function serializeError(error) {
+    return {
+        message: getErrorMessage(error),
+        stack: typeof error?.stack === "string" ? error.stack : getErrorMessage(error)
+    };
+}
+
+
+function getErrorMessage(error) {
+    return typeof error?.message === "string" ? error.message : String(error);
+}

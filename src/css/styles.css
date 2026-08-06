@@ -158,6 +158,31 @@
     cursor: pointer;
 }
 
+@keyframes jmp-pulsate {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0.8;
+    }
+}
+
+.jmp-rating-bubble.jmp-pulsating {
+    animation: jmp-pulsate 2s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jmp-rating-bubble.jmp-pulsating {
+        animation: none;
+    }
+}
+
+.jmp-books-link-hidden {
+    visibility: hidden !important;
+}
+
 .jmp-webreg-bubble {
     display: inline-block;
     padding: 4px 8px;
