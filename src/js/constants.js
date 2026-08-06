@@ -31,7 +31,7 @@ query NewSearchTeachersQuery($text: String!, $schoolID: ID!, $first: Int!)
 }
 `;
 
-//tweak fuse search to increase accuracy for specific departments
+// Department synonyms add subject evidence without allowing broad fuzzy matches.
 self.departmentAliases = Object.freeze({
     "Genetics": "Bio Science Genetics",
     "Mathematics": "Calculus Mathematics",
