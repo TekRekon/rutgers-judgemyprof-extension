@@ -45,18 +45,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 async function notifyActiveTab(hide) {
-    const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
-    if (!activeTab?.id) {
-        return;
-    }
-
     try {
+        const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
+        if (activeTab?.id === undefined) {
+            return;
+        }
         await chrome.tabs.sendMessage(activeTab.id, {
             action: 'toggleBooksLinks',
             hide
         });
     } catch (_error) {
-        // The global setting is still saved when the active tab is not a supported Rutgers page.
+        // The global setting remains saved if the tab disappears or does not run this content script.
     }
 }
 

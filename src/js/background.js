@@ -180,9 +180,13 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
         if (selectedProfessor && allSchoolsSucceeded && generation === cacheGeneration) {
             filteredProfStats.set(cacheKey, selectedProfessor);
             if (selectedProfessor.department) {
-                await chrome.storage.local.set({
-                    [`${CACHE_KEY_PREFIX}${cacheKey}`]: selectedProfessor
-                });
+                try {
+                    await chrome.storage.local.set({
+                        [`${CACHE_KEY_PREFIX}${cacheKey}`]: selectedProfessor
+                    });
+                } catch (error) {
+                    console.warn("Could not persist professor cache entry:", error);
+                }
             }
         }
 
@@ -218,7 +222,8 @@ async function fetchProfessorCandidates(profName, schoolID, first) {
     const generation = cacheGeneration;
     const promise = apiFetch(ProfessorSearchQuery, {text: profName, schoolID, first})
         .then(data => {
-            const edges = data.data?.newSearch?.teachers?.edges ?? [];
+            const returnedEdges = data.data?.newSearch?.teachers?.edges;
+            const edges = Array.isArray(returnedEdges) ? returnedEdges : [];
             const professors = edges
                 .map(edge => normalizeProfessorStats(edge?.node))
                 .filter(Boolean);
@@ -286,16 +291,15 @@ function professorNameMatches(searchName, professor) {
         return foundNameTokens.some(token => namesOverlap(searchTokens[0], token));
     }
 
-    const searchedFirstName = searchTokens[0];
-    const searchedLastName = searchTokens[searchTokens.length - 1];
-    const foundFirstName = firstNameTokens[0] ?? "";
-    const foundLastName = lastNameTokens[lastNameTokens.length - 1] ?? "";
-
-    return (
-        namesOverlap(searchedFirstName, foundFirstName) && namesOverlap(searchedLastName, foundLastName)
-    ) || (
-        namesOverlap(searchedFirstName, foundLastName) && namesOverlap(searchedLastName, foundFirstName)
+    const firstNameMatchIndex = searchTokens.findIndex(searchToken =>
+        firstNameTokens.some(foundToken => namesOverlap(searchToken, foundToken))
     );
+    const lastNameMatchIndex = searchTokens.findIndex((searchToken, index) =>
+        index !== firstNameMatchIndex
+        && lastNameTokens.some(foundToken => namesOverlap(searchToken, foundToken))
+    );
+
+    return firstNameMatchIndex !== -1 && lastNameMatchIndex !== -1;
 }
 
 

@@ -7,7 +7,7 @@ let booksLinksObserver = null;
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message.action === 'toggleBooksLinks') {
+    if (message?.action === 'toggleBooksLinks') {
         setBooksLinksVisibility(Boolean(message.hide));
         sendResponse({ success: true });
     }
@@ -275,7 +275,7 @@ function getNumericSeason(season) {
 function extractInstructorElements(elementWithCourseName) {
     let unfilteredInstructorElements = [];
     if (isSOC || isWebReg || isOldSOC) {
-        unfilteredInstructorElements = elementWithCourseName.querySelectorAll('.instructors');
+        unfilteredInstructorElements = (elementWithCourseName ?? document).querySelectorAll('.instructors');
     } else if (isCSP) {
         unfilteredInstructorElements = document.querySelectorAll('td[title="Instructor"]');
         //filter out selected instructor elements not from the current dropdown if a dropdown was clicked
@@ -332,14 +332,14 @@ function extractIndexElements(elementWithCourseName) {
 function extractSubjectName() {
     let subjectName = "";
     if (isSOC || isWebReg) {
-        subjectName = document.getElementById('subjectTitle2').innerText;
+        subjectName = document.getElementById('subjectTitle2')?.textContent ?? "";
     } else if (isOldSOC) {
-        subjectName = document.getElementById('subjectTitle').innerText;
+        subjectName = document.getElementById('subjectTitle')?.textContent ?? "";
     } else if (isCSP) {
         //only the select course tab can give us the subject through the subject dropdown
         if (window.location.href.includes("SelectCourseTab")) {
             let subjectDropdown = document.querySelector('#CourseSearchID select:last-of-type');
-            subjectName = subjectDropdown.options[subjectDropdown.selectedIndex].text;
+            subjectName = subjectDropdown?.options?.[subjectDropdown.selectedIndex]?.text ?? "";
             //if the user has not selected a subject yet
             if (subjectName.includes("Select a Subject")) {
                 subjectName = "";
@@ -382,7 +382,7 @@ function extractCourseName(instructorElement, elementWithCourseName) {
         }
 
         //build schedule/saved schedule tab logic
-        let parentRow = instructorElement.parentElement;
+        let parentRow = instructorElement.closest('tr');
         if (parentRow) {
             let courseTitleElement = parentRow.querySelector('.course-title');
             if (courseTitleElement) {
@@ -787,10 +787,10 @@ function findParentDiv(element, className) {
     className = className.toLowerCase();
     while (element && element.parentNode) {
         element = element.parentNode;
-        if (element.className && element.className.toLowerCase() === className) {
+        if (Array.from(element.classList ?? []).some(token => token.toLowerCase() === className)) {
             while (element && element.previousSibling) {
                 element = element.previousSibling;
-                if (element.className && element.className.toLowerCase() === "metadata hidden") {
+                if (element.classList?.contains("metadata") && element.classList.contains("hidden")) {
                     return element;
                 }
             }
@@ -811,7 +811,7 @@ function findParentDiv(element, className) {
  * @returns {number} The calculated font size, with a minimum value of 10.
  */
 function getDynamicFontSize(text, baseSize = 15, stepSize = 25, stepThreshold = 15) {
-    const length = text.length;
+    const length = typeof text === "string" ? text.length : 0;
     let fontSize = baseSize;
     if (length > stepThreshold) {
         const stepsOverThreshold = Math.floor((length - stepThreshold) / stepThreshold);

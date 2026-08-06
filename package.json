@@ -4,8 +4,21 @@
   "description": "Seamlessly integrates with the Rutgers course registration system to provide valuable information about your professors",
   "author": "Lukas Siernos",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test test/*.test.js",
+    "test:coverage": "COVERAGE=1 node --import=./test/helpers/coverage-hook.js --test --experimental-test-isolation=none test/*.test.js",
+    "check:syntax": "node --check src/js/constants.js && node --check src/js/background.js && node --check src/js/content.js && node --check src/js/popup.js",
+    "check": "npm run check:syntax && npm run test:coverage"
+  },
+  "devDependencies": {
+    "istanbul-lib-coverage": "3.2.2",
+    "istanbul-lib-instrument": "6.0.3",
+    "istanbul-lib-report": "3.0.1",
+    "istanbul-reports": "3.2.0",
+    "jsdom": "29.1.1"
   },
   "keywords": [
     "chrome-extension",

@@ -71,8 +71,11 @@ The **Rutgers JudgeMyProfessor Chrome Extension** is a powerful tool designed to
 Run the regression suite before loading the extension unpacked or publishing a change:
 
 ```sh
-npm test
+npm ci
+npm run check
 ```
+
+`npm run check` validates JavaScript syntax, runs the background/content/popup/integrity suites, and enforces production-code coverage thresholds.
 
 
 

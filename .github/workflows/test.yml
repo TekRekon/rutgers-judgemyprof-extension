@@ -24,5 +24,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run tests
-        run: npm test
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run syntax, test, and coverage checks
+        run: npm run check
