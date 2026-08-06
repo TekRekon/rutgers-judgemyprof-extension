@@ -25,11 +25,13 @@ test("professorNameMatches supports single names, middle names, initials, and re
     const cases = [
         ["Jose Miguel Garcia Smith", true],
         ["Garcia Smith Jose", true],
+        ["Garcia Smith", true],
         ["José", true],
         ["Smith", true],
         ["J Garcia", true],
         ["Garcia J", true],
         ["John Garcia", false],
+        ["Garcia Smyth", false],
         ["Jose Jones", false],
         ["", false]
     ];
@@ -37,6 +39,32 @@ test("professorNameMatches supports single names, middle names, initials, and re
         await t.test(JSON.stringify(name), () => assert.equal(matches(name, professor), expected));
     }
     assert.equal(matches("Jose Garcia", {firstName: "", lastName: ""}), false);
+});
+
+
+test("compound surname approximation permits only one insertion or deletion with an exact anchor", async () => {
+    const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
+    const score = runtime.evaluate("compoundSurnameMatchScore");
+    const oneEdit = runtime.evaluate("isSingleInsertionOrDeletionApart");
+
+    assert.equal(score(["mejia", "ramos"], ["mejia", "ramos"]), 1);
+    assert.equal(score(["barreto", "aranda"], ["barretto", "aranda"]), 0.95);
+    assert.equal(score(["barreto", "aranda"], ["barretto", "arando"]), 0);
+    assert.equal(score(["garcia", "smith"], ["garcia", "smyth"]), 0);
+    assert.equal(score(["longname", "surname"], ["longnam", "surnam"]), 0);
+    assert.equal(score(["solo"], ["solo"]), 0);
+    assert.equal(oneEdit("barreto", "barretto"), true);
+    assert.equal(oneEdit("smith", "smyth"), false);
+    assert.equal(oneEdit("same", "same"), false);
+    assert.equal(oneEdit("ab", "abcd"), false);
+});
+
+
+test("professor search fallbacks and query normalization reject invalid input defensively", async () => {
+    const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
+
+    assert.deepEqual(Array.from(runtime.evaluate("getFallbackProfessorSearchNames")(null)), []);
+    assert.equal(runtime.evaluate("normalizeProfessorSearchQuery")(null), "");
 });
 
 

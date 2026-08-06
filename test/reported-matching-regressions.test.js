@@ -75,6 +75,22 @@ const mariaCaudrado = professorNode({
     department: "Mathematics",
     numRatings: 8
 });
+const pabloMejiaRamos = professorNode({
+    id: "pablo-mejia-ramos",
+    legacyId: 1_310_221,
+    firstName: "Pablo",
+    lastName: "Mejia Ramos",
+    department: "Mathematics",
+    numRatings: 17
+});
+const victorBarrettoAranda = professorNode({
+    id: "victor-barretto-aranda",
+    legacyId: 2_008_587,
+    firstName: "Victor",
+    lastName: "Barretto-Aranda",
+    department: "Mathematics",
+    numRatings: 17
+});
 
 
 test("reported regression: exact WEIJIE SONG outranks the Wei Song prefix match", async () => {
@@ -225,4 +241,86 @@ test("ranking order is name confidence, then department evidence, then review co
     const tiedLow = {...weijieSong, id: "tied-low", numRatings: 1};
     const tiedHigh = {...weijieSong, id: "tied-high", numRatings: 10};
     assert.equal(select([tiedLow, tiedHigh], "Chinese", "Weijie Song").id, "tied-high");
+});
+
+
+test("reported regression: hyphenated MEJIA-RAMOS retries with spaces and matches a compound surname", async () => {
+    let fetchCount = 0;
+    const searchTexts = [];
+    const robertRamos = professorNode({
+        id: "robert-ramos",
+        legacyId: 1_872_350,
+        firstName: "Robert",
+        lastName: "Ramos",
+        department: "Ethnic Studies",
+        numRatings: 100
+    });
+    const runtime = await createBackgroundRuntime({
+        storedItems: currentCacheMetadata(),
+        fetchImpl: async (_url, init) => {
+            fetchCount += 1;
+            const {variables} = JSON.parse(init.body);
+            searchTexts.push(variables.text);
+            return variables.text === "mejia ramos"
+                ? searchResponse([robertRamos, pabloMejiaRamos])
+                : searchResponse([]);
+        }
+    });
+
+    const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
+        "MEJIA-RAMOS",
+        "INTRO MATH REASONING Mathematics"
+    );
+
+    assert.equal(selected.legacyId, 1_310_221);
+    assert.equal(fetchCount, 10);
+    assert.deepEqual(new Set(searchTexts), new Set(["MEJIA-RAMOS", "mejia ramos"]));
+    assert.equal(runtime.evaluate("professorNameMatches")("MEJIA-RAMOS", pabloMejiaRamos), true);
+    assert.equal(runtime.evaluate("professorNameMatches")("MEJIA-RAMOS", robertRamos), false);
+});
+
+
+test("reported regression: compound-surname blocking finds BARRETO-ARANDA despite RMP's extra letter", async () => {
+    let fetchCount = 0;
+    const searchTexts = [];
+    const noraBarrett = professorNode({
+        id: "nora-barrett",
+        legacyId: 2_866_770,
+        firstName: "Nora",
+        lastName: "Barrett",
+        department: "Psychology",
+        numRatings: 1_000
+    });
+    const runtime = await createBackgroundRuntime({
+        storedItems: currentCacheMetadata(),
+        fetchImpl: async (_url, init) => {
+            fetchCount += 1;
+            const {variables} = JSON.parse(init.body);
+            searchTexts.push(variables.text);
+            return variables.text === "barret"
+                ? searchResponse([noraBarrett, victorBarrettoAranda, sandyBurns])
+                : searchResponse([]);
+        }
+    });
+
+    const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
+        "BARRETO-ARANDA",
+        "CALCULUS I FOR THE LIFE AND SOCIAL SCIENCES Mathematics"
+    );
+
+    assert.equal(selected.legacyId, 2_008_587);
+    assert.equal(fetchCount, 15);
+    assert.deepEqual(
+        new Set(searchTexts),
+        new Set(["BARRETO-ARANDA", "barreto aranda", "barret"])
+    );
+    assert.deepEqual(
+        Array.from(runtime.evaluate("getFallbackProfessorSearchNames")("BARRETO-ARANDA")),
+        ["barreto aranda", "barret"]
+    );
+    assert.equal(runtime.context.professorSearchCorrections.barreto, undefined);
+    assert.equal(runtime.context.nameTokenAliases.barreto, undefined);
+    assert.equal(runtime.evaluate("professorNameMatches")("BARRETO-ARANDA", victorBarrettoAranda), true);
+    assert.equal(runtime.evaluate("professorNameMatches")("BARRETO-ARANDA", sandyBurns), false);
+    assert.equal(runtime.evaluate("professorNameMatches")("BARRETO-ARANDA", noraBarrett), false);
 });

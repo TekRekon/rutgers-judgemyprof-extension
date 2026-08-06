@@ -147,6 +147,30 @@ test("identical concurrent candidate searches share one request and later reuse 
 });
 
 
+test("candidate search cache preserves punctuation variants that RMP indexes differently", async () => {
+    let fetchCount = 0;
+    const runtime = await createBackgroundRuntime({
+        storedItems: currentCacheMetadata(),
+        fetchImpl: async () => {
+            fetchCount += 1;
+            return searchResponse([]);
+        }
+    });
+    const fetchCandidates = runtime.evaluate("fetchProfessorCandidates");
+
+    await fetchCandidates("MEJIA-RAMOS", "school", 20);
+    await fetchCandidates("mejia-ramos", "school", 20);
+    await fetchCandidates("mejia ramos", "school", 20);
+
+    assert.equal(fetchCount, 2);
+    assert.equal(runtime.evaluate("normalizeProfessorSearchQuery")(" D’ALESANDRO "), "d’alesandro");
+    assert.notEqual(
+        runtime.evaluate("normalizeProfessorSearchQuery")("MEJIA-RAMOS"),
+        runtime.evaluate("normalizeProfessorSearchQuery")("mejia ramos")
+    );
+});
+
+
 test("identical concurrent professor lookups share five school searches and persist one result", async () => {
     let fetchCount = 0;
     const runtime = await createBackgroundRuntime({

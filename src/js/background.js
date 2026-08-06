@@ -9,6 +9,8 @@ const SEARCH_RESULTS_PER_SCHOOL = 20;
 const ERROR_RESPONSE_MAX_BYTES = 4_096;
 const ERROR_REASON_MAX_LENGTH = 160;
 const MIN_NAME_MATCH_SCORE = 0.85;
+const MIN_COMPOUND_PREFIX_LENGTH = 6;
+const MIN_APPROXIMATE_SURNAME_TOKEN_LENGTH = 5;
 
 const STOP_WORDS = new Set([
     "the", "and", "or", "of", "in", "for", "to", "a", "an", "is", "at", "by", "on", "with"
@@ -160,9 +162,11 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
         collectMatchingProfessors(professorsByID, primarySearch.schoolResults, profName);
 
         let allSchoolsSucceeded = primarySearch.allSucceeded;
-        const correctedSearchName = getCorrectedProfessorSearchName(profName);
-        if (professorsByID.size === 0 && correctedSearchName) {
-            const fallbackSearch = await searchProfessorSchools(correctedSearchName);
+        for (const fallbackSearchName of getFallbackProfessorSearchNames(profName)) {
+            if (professorsByID.size > 0) {
+                break;
+            }
+            const fallbackSearch = await searchProfessorSchools(fallbackSearchName);
             allSchoolsSucceeded = allSchoolsSucceeded && fallbackSearch.allSucceeded;
             collectMatchingProfessors(professorsByID, fallbackSearch.schoolResults, profName);
         }
@@ -227,15 +231,34 @@ function collectMatchingProfessors(professorsByID, schoolResults, profName) {
 }
 
 
-function getCorrectedProfessorSearchName(profName) {
+function getFallbackProfessorSearchNames(profName) {
+    if (typeof profName !== "string") {
+        return [];
+    }
+
     const tokens = tokenizeName(profName);
-    let changed = false;
+    const normalizedName = tokens.join(" ");
+    const comparableInput = profName.toLowerCase().trim().replace(/\s+/g, " ");
+    const fallbackNames = new Set();
+    if (normalizedName && normalizedName !== comparableInput) {
+        fallbackNames.add(normalizedName);
+    }
+
     const correctedTokens = tokens.map(token => {
-        const corrected = professorSearchCorrections[token] ?? token;
-        changed ||= corrected !== token;
-        return corrected;
+        return professorSearchCorrections[token] ?? token;
     });
-    return changed ? correctedTokens.join(" ") : "";
+    const correctedName = correctedTokens.join(" ");
+    if (correctedName && correctedName !== normalizedName) {
+        fallbackNames.add(correctedName);
+    }
+
+    // RMP sometimes indexes a hyphenated surname only by a prefix of its first component.
+    // Use this solely for compound names and verify the complete surname before accepting a result.
+    if (/[-‐‑‒–—―]/u.test(profName) && tokens[0]?.length >= MIN_COMPOUND_PREFIX_LENGTH) {
+        fallbackNames.add(tokens[0].slice(0, -1));
+    }
+
+    return Array.from(fallbackNames);
 }
 
 
@@ -244,7 +267,7 @@ function getCorrectedProfessorSearchName(profName) {
  * This avoids the previous extra request for every returned professor ID.
  */
 async function fetchProfessorCandidates(profName, schoolID, first) {
-    const cacheKey = JSON.stringify([normalizeName(profName), schoolID, first]);
+    const cacheKey = JSON.stringify([normalizeProfessorSearchQuery(profName), schoolID, first]);
     if (professorSearchCache.has(cacheKey)) {
         return professorSearchCache.get(cacheKey);
     }
@@ -331,7 +354,7 @@ function professorNameMatchScore(searchName, professor) {
         return Math.max(...foundNameTokens.map(token => nameTokenMatchScore(searchTokens[0], token)));
     }
 
-    let bestScore = 0;
+    let bestScore = compoundSurnameMatchScore(searchTokens, lastNameTokens);
     for (let firstIndex = 0; firstIndex < searchTokens.length; firstIndex += 1) {
         const firstScore = Math.max(
             0,
@@ -354,6 +377,66 @@ function professorNameMatchScore(searchName, professor) {
     }
 
     return bestScore;
+}
+
+
+function compoundSurnameMatchScore(searchTokens, lastNameTokens) {
+    if (searchTokens.length < 2 || searchTokens.length !== lastNameTokens.length) {
+        return 0;
+    }
+
+    let totalScore = 0;
+    let exactMatches = 0;
+    let approximateMatches = 0;
+    for (let index = 0; index < searchTokens.length; index += 1) {
+        const searchToken = searchTokens[index];
+        const lastNameToken = lastNameTokens[index];
+        if (searchToken === lastNameToken) {
+            totalScore += 1;
+            exactMatches += 1;
+            continue;
+        }
+
+        if (
+            approximateMatches === 0
+            && Math.min(searchToken.length, lastNameToken.length) >= MIN_APPROXIMATE_SURNAME_TOKEN_LENGTH
+            && isSingleInsertionOrDeletionApart(searchToken, lastNameToken)
+        ) {
+            totalScore += 0.9;
+            approximateMatches += 1;
+            continue;
+        }
+
+        return 0;
+    }
+
+    return exactMatches > 0 ? totalScore / searchTokens.length : 0;
+}
+
+
+function isSingleInsertionOrDeletionApart(left, right) {
+    if (Math.abs(left.length - right.length) !== 1) {
+        return false;
+    }
+
+    const shorter = left.length < right.length ? left : right;
+    const longer = left.length < right.length ? right : left;
+    let shorterIndex = 0;
+    let longerIndex = 0;
+    let skipped = false;
+    while (shorterIndex < shorter.length && longerIndex < longer.length) {
+        if (shorter[shorterIndex] === longer[longerIndex]) {
+            shorterIndex += 1;
+            longerIndex += 1;
+            continue;
+        }
+        if (skipped) {
+            return false;
+        }
+        skipped = true;
+        longerIndex += 1;
+    }
+    return true;
 }
 
 
@@ -387,6 +470,14 @@ function nameTokenMatchScore(left, right) {
 function tokenizeName(name) {
     const normalizedName = normalizeName(name);
     return normalizedName ? normalizedName.split(" ") : [];
+}
+
+
+function normalizeProfessorSearchQuery(name) {
+    if (typeof name !== "string") {
+        return "";
+    }
+    return name.normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 
