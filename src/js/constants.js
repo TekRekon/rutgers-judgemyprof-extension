@@ -1,5 +1,5 @@
 self.API_URL = "https://www.ratemyprofessors.com/graphql";
-self.CACHE_SCHEMA_VERSION = 3;
+self.CACHE_SCHEMA_VERSION = 4;
 self.CACHE_MAX_AGE_MS = 3 * 7 * 24 * 60 * 60 * 1000;
 self.MAX_CONCURRENT_API_REQUESTS = 6;
 self.MAX_FETCH_RETRIES = 2;

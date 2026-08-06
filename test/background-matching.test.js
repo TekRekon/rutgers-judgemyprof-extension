@@ -156,6 +156,46 @@ test("selectMostLikelyProfessor handles empty, singleton, department, and rating
 });
 
 
+test("obvious discipline conflicts veto weak-name candidates without entering adjacent or exact-name cases", async () => {
+    const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
+    const select = runtime.evaluate("selectMostLikelyProfessor");
+    const conflicts = runtime.evaluate("hasObviousDepartmentConflict");
+    const classify = runtime.evaluate("classifyDiscipline");
+    const musicLee = {
+        id: "music-lee",
+        firstName: "Morgan",
+        lastName: "Lee",
+        department: "Music",
+        numRatings: 1_000
+    };
+    const mathLee = {
+        id: "math-lee",
+        firstName: "Maria",
+        lastName: "Lee",
+        department: "Mathematics",
+        numRatings: 1
+    };
+
+    assert.equal(select([musicLee], "Calculus Mathematics", "Lee", "Mathematics"), null);
+    assert.equal(select([musicLee, mathLee], "Calculus Mathematics", "Lee", "Mathematics").id, "math-lee");
+    assert.equal(
+        select([musicLee], "Calculus Mathematics", "Morgan Lee", "Mathematics").id,
+        "music-lee",
+        "a complete exact identity remains eligible because cross-department teaching is possible"
+    );
+    assert.equal(select([musicLee], "Calculus Mathematics", "Lee", "").id, "music-lee");
+    assert.equal(conflicts("Computer Science", "Mathematics", "Lee", mathLee), false);
+    assert.equal(conflicts("Unknown Studies", "Music", "Lee", musicLee), false);
+    assert.equal(conflicts("Mathematics", "", "Lee", musicLee), false);
+    assert.equal(conflicts("Theater", "Nursing", "Lee", musicLee), true);
+    assert.equal(classify("MATHEMATICS (640)"), "mathematics");
+    assert.equal(classify("Musicology and Music"), "music");
+    assert.equal(classify("Biomedical Engineering"), "engineering");
+    assert.equal(classify("unclassified interdisciplinary studies"), "");
+    assert.equal(classify(null), "");
+});
+
+
 test("cache keys normalize equivalent inputs and cannot collide at separator boundaries", async () => {
     const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
     const makeKey = runtime.evaluate("makeProfessorCacheKey");
@@ -165,6 +205,14 @@ test("cache keys normalize equivalent inputs and cannot collide at separator bou
         makeKey("jose garcia", "computer science")
     );
     assert.notEqual(makeKey("a_b", "c"), makeKey("a", "b_c"));
+    assert.equal(
+        makeKey("Ada Lovelace", "Calculus", " Mathematics "),
+        makeKey("ada lovelace", "calculus", "mathematics")
+    );
+    assert.notEqual(
+        makeKey("Ada Lovelace", "Calculus", "Mathematics"),
+        makeKey("Ada Lovelace", "Calculus", "Music")
+    );
 });
 
 

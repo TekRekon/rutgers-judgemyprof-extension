@@ -32,7 +32,7 @@ function searchResponse(edges) {
 test("initializeCache loads current professor entries and ignores unrelated storage", async () => {
     let fetchCount = 0;
     const cached = professorNode();
-    const cacheKey = '["ada lovelace","computer science"]';
+    const cacheKey = '["ada lovelace","computer science",""]';
     const runtime = await createBackgroundRuntime({
         storedItems: {
             ...currentCacheMetadata(),
@@ -71,7 +71,7 @@ test("initializeCache replaces missing, mismatched, non-numeric, and stale metad
                 storedItems: {...storedItems, "professor:old": professorNode()}
             });
             assert.equal(runtime.storageCalls.clear, 1);
-            assert.equal(runtime.storageItems.cacheSchemaVersion, 3);
+            assert.equal(runtime.storageItems.cacheSchemaVersion, 4);
             assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
             assert.equal("professor:old" in runtime.storageItems, false);
         });
@@ -321,7 +321,7 @@ test("resetCache clears memory and storage, writes fresh metadata, and invalidat
     assert.equal((await lookupPromise).id, "teacher-1");
 
     assert.equal(runtime.storageCalls.clear, 1);
-    assert.equal(runtime.storageItems.cacheSchemaVersion, 3);
+    assert.equal(runtime.storageItems.cacheSchemaVersion, 4);
     assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
     assert.equal(Object.keys(runtime.storageItems).some(key => key.startsWith("professor:")), false);
     assert.equal(runtime.evaluate("filteredProfStats.size"), 0);
@@ -349,9 +349,16 @@ test("background message routing validates actions and serializes successes and 
         const response = await runtime.dispatchMessage({
             action: "fetchProfStats",
             profName: "  Ada Lovelace  ",
-            matchText: "  CS  "
+            matchText: "  CS  ",
+            subjectName: "  Computer Science  "
         });
         assert.equal(response.data.id, "teacher-1");
+        assert.equal(
+            Object.keys(runtime.storageItems).some(key =>
+                key.includes('["ada lovelace","computer science","computer science"]')
+            ),
+            true
+        );
     });
 
     await t.test("fetch failure returns serializable details", async () => {

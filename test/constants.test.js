@@ -8,7 +8,7 @@ test("network and cache constants are bounded and internally consistent", async 
     const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
 
     assert.equal(runtime.context.API_URL, "https://www.ratemyprofessors.com/graphql");
-    assert.equal(runtime.context.CACHE_SCHEMA_VERSION, 3);
+    assert.equal(runtime.context.CACHE_SCHEMA_VERSION, 4);
     assert.equal(runtime.context.CACHE_MAX_AGE_MS, 3 * 7 * 24 * 60 * 60 * 1_000);
     assert.ok(runtime.context.MAX_CONCURRENT_API_REQUESTS >= 1);
     assert.ok(runtime.context.MAX_CONCURRENT_API_REQUESTS <= 10);

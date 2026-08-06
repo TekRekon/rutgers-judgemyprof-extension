@@ -136,7 +136,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             let ratingBubbleElem = initializeLoadingBubble(instructorElement);
             let response = null;
             try {
-                response = await fetchProfStats(currProfSearch, matchText);
+                response = await fetchProfStats(currProfSearch, matchText, subjectName);
             } catch (error) {
                 convertToErrorBubble(ratingBubbleElem, error);
                 continue;
@@ -154,7 +154,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             //if both names given and data is unavailable
             else {
                 try {
-                    response = await fetchProfStats(instructorNames[i], matchText);
+                    response = await fetchProfStats(instructorNames[i], matchText, subjectName);
                     populateRatingBubble(instructorElement, ratingBubbleElem, response, currProfSearch);
                     ratingBubbleElem.classList.remove('jmp-pulsating');
                 } catch (error) {
@@ -170,7 +170,7 @@ async function rateInstructorElement(instructorElement, subjectName, elementWith
             }
             initializedBubbles.add(instructorName);
             let ratingBubbleElem = initializeLoadingBubble(instructorElement);
-            fetchProfStats(instructorName, matchText)
+            fetchProfStats(instructorName, matchText, subjectName)
                 .then(response => {
                     populateRatingBubble(instructorElement, ratingBubbleElem, response, instructorName);
                     ratingBubbleElem.classList.remove('jmp-pulsating');
@@ -747,14 +747,16 @@ function populateRatingBubble(instructorElem, ratingBubbleElem, response, profTe
  *
  * @param {string} profName The name of the professor.
  * @param {string} matchText The text to match to the professor's department for filtering results.
+ * @param {string} subjectName The canonical Rutgers subject used for conservative mismatch checks.
  * @returns {Promise<Object>} A promise that resolves with the fetched data or rejects with an error.
  */
-async function fetchProfStats(profName, matchText) {
+async function fetchProfStats(profName, matchText, subjectName = "") {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
             action: 'fetchProfStats',
             matchText: matchText,
-            profName: profName
+            profName: profName,
+            subjectName: subjectName
         }, response => {
             if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));

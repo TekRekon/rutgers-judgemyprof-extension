@@ -101,7 +101,8 @@ test("reported regression: exact WEIJIE SONG outranks the Wei Song prefix match"
 
     const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
         "WEIJIE SONG",
-        "MODERN CHINESE LITERATURE IN TRANSLATION Chinese"
+        "MODERN CHINESE LITERATURE IN TRANSLATION Chinese",
+        "Chinese"
     );
 
     assert.equal(selected.legacyId, 1_270_555);
@@ -149,7 +150,8 @@ test("reported regression: verified Sandra/Sandy equivalence finds Sandy Burns w
 
     const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
         "SANDRA BURNS",
-        "ELEMENTARY ALGEBRA Mathematics"
+        "ELEMENTARY ALGEBRA Mathematics",
+        "Mathematics"
     );
 
     assert.equal(selected.legacyId, 1_383_581);
@@ -165,6 +167,14 @@ test("reported regression: verified Sandra/Sandy equivalence finds Sandy Burns w
 test("reported regression: RMP's Cuadrado typo uses one bounded fallback round", async () => {
     let fetchCount = 0;
     const searchTexts = [];
+    const wrongDepartmentCuadrado = professorNode({
+        id: "wrong-department-cuadrado",
+        legacyId: 999_998,
+        firstName: "Alex",
+        lastName: "Cuadrado",
+        department: "Music",
+        numRatings: 1_000
+    });
     const runtime = await createBackgroundRuntime({
         storedItems: currentCacheMetadata(),
         fetchImpl: async (_url, init) => {
@@ -173,13 +183,14 @@ test("reported regression: RMP's Cuadrado typo uses one bounded fallback round",
             searchTexts.push(variables.text);
             return variables.text === "caudrado"
                 ? searchResponse([mariaCaudrado])
-                : searchResponse([]);
+                : searchResponse([wrongDepartmentCuadrado]);
         }
     });
 
     const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
         "CUADRADO",
-        "ELEMENTARY ALGEBRA Mathematics"
+        "ELEMENTARY ALGEBRA Mathematics",
+        "Mathematics"
     );
 
     assert.equal(selected.legacyId, 3_048_136);
@@ -206,7 +217,11 @@ test("correctly spelled primary results suppress typo fallback and unrelated nea
         }
     });
 
-    const selected = await runtime.evaluate("fetchMostLikelyProfessor")("Cuadrado", "Mathematics");
+    const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
+        "Cuadrado",
+        "Mathematics",
+        "Mathematics"
+    );
     assert.equal(selected.legacyId, 999);
     assert.equal(fetchCount, 5);
     assert.equal(
@@ -269,7 +284,8 @@ test("reported regression: hyphenated MEJIA-RAMOS retries with spaces and matche
 
     const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
         "MEJIA-RAMOS",
-        "INTRO MATH REASONING Mathematics"
+        "INTRO MATH REASONING Mathematics",
+        "Mathematics"
     );
 
     assert.equal(selected.legacyId, 1_310_221);
@@ -305,7 +321,8 @@ test("reported regression: compound-surname blocking finds BARRETO-ARANDA despit
 
     const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
         "BARRETO-ARANDA",
-        "CALCULUS I FOR THE LIFE AND SOCIAL SCIENCES Mathematics"
+        "CALCULUS I FOR THE LIFE AND SOCIAL SCIENCES Mathematics",
+        "Mathematics"
     );
 
     assert.equal(selected.legacyId, 2_008_587);

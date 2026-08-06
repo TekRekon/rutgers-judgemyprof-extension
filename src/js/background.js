@@ -64,6 +64,34 @@ const ABBREVIATIONS = Object.freeze({
     calc: "calculus"
 });
 
+// These deliberately broad families are used only for a small set of unambiguous conflicts.
+// Unknown and adjacent disciplines remain eligible rather than being guessed at.
+const DISCIPLINE_PHRASES = Object.freeze({
+    mathematics: Object.freeze(["mathematics", "mathematical science", "math", "statistics", "calculus", "algebra"]),
+    music: Object.freeze(["music", "musicology"]),
+    performing_arts: Object.freeze(["performing arts", "dance", "theater", "theatre", "acting"]),
+    computing: Object.freeze(["computer science", "computing", "informatics", "information technology", "data science"]),
+    engineering: Object.freeze(["engineering"]),
+    life_sciences: Object.freeze(["life science", "biology", "biological science", "genetics", "microbiology", "biochemistry", "neuroscience"]),
+    physical_sciences: Object.freeze(["physical science", "physics", "chemistry", "geology", "astronomy", "earth science"]),
+    health_sciences: Object.freeze(["health science", "nursing", "medicine", "medical", "pharmacy", "dentistry", "dental", "public health"])
+});
+
+const OBVIOUS_DISCIPLINE_CONFLICTS = new Set([
+    "computing|music",
+    "computing|performing_arts",
+    "engineering|music",
+    "engineering|performing_arts",
+    "health_sciences|music",
+    "health_sciences|performing_arts",
+    "life_sciences|music",
+    "life_sciences|performing_arts",
+    "mathematics|music",
+    "mathematics|performing_arts",
+    "music|physical_sciences",
+    "performing_arts|physical_sciences"
+]);
+
 const originalDepartmentByAlias = new Map(
     Object.entries(departmentAliases).map(([department, alias]) => [alias, department])
 );
@@ -112,7 +140,8 @@ async function handleFetchStatsRequest(request) {
     await cacheReady;
     const profName = typeof request.profName === "string" ? request.profName.trim() : "";
     const matchText = typeof request.matchText === "string" ? request.matchText.trim() : "";
-    return fetchMostLikelyProfessor(profName, matchText);
+    const subjectName = typeof request.subjectName === "string" ? request.subjectName.trim() : "";
+    return fetchMostLikelyProfessor(profName, matchText, subjectName);
 }
 
 
@@ -134,14 +163,15 @@ async function resetCache() {
  *
  * @param {string} profName - Instructor name from the Rutgers page.
  * @param {string} [matchText=""] - Course and subject text used to compare departments.
+ * @param {string} [subjectName=""] - Canonical Rutgers subject used for conservative mismatch checks.
  * @returns {Promise<Object|null>} The selected professor record, or null when no record matches.
  */
-async function fetchMostLikelyProfessor(profName, matchText = "") {
+async function fetchMostLikelyProfessor(profName, matchText = "", subjectName = "") {
     if (!profName) {
         return null;
     }
 
-    const cacheKey = makeProfessorCacheKey(profName, matchText);
+    const cacheKey = makeProfessorCacheKey(profName, matchText, subjectName);
     if (filteredProfStats.has(cacheKey)) {
         return filteredProfStats.get(cacheKey);
     }
@@ -163,7 +193,7 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
 
         let allSchoolsSucceeded = primarySearch.allSucceeded;
         for (const fallbackSearchName of getFallbackProfessorSearchNames(profName)) {
-            if (professorsByID.size > 0) {
+            if (hasEligibleProfessor(professorsByID, subjectName, profName)) {
                 break;
             }
             const fallbackSearch = await searchProfessorSchools(fallbackSearchName);
@@ -174,7 +204,8 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
         const selectedProfessor = selectMostLikelyProfessor(
             Array.from(professorsByID.values()),
             matchText,
-            profName
+            profName,
+            subjectName
         );
 
         if (selectedProfessor && allSchoolsSucceeded && generation === cacheGeneration) {
@@ -228,6 +259,13 @@ function collectMatchingProfessors(professorsByID, schoolResults, profName) {
             }
         }
     }
+}
+
+
+function hasEligibleProfessor(professorsByID, subjectName, searchName) {
+    return Array.from(professorsByID.values()).some(professor =>
+        !hasObviousDepartmentConflict(subjectName, professor.department, searchName, professor)
+    );
 }
 
 
@@ -496,18 +534,70 @@ function normalizeName(name) {
 }
 
 
-function selectMostLikelyProfessor(professors, matchText, searchName = "") {
-    if (professors.length === 0) {
+function selectMostLikelyProfessor(professors, matchText, searchName = "", subjectName = "") {
+    const eligibleProfessors = professors.filter(professor =>
+        !hasObviousDepartmentConflict(subjectName, professor.department, searchName, professor)
+    );
+    if (eligibleProfessors.length === 0) {
         return null;
     }
-    if (professors.length === 1) {
-        return professors[0];
+    if (eligibleProfessors.length === 1) {
+        return eligibleProfessors[0];
     }
 
-    return professors.reduce((best, professor) => {
+    return eligibleProfessors.reduce((best, professor) => {
         const comparison = compareProfessorCandidates(professor, best, searchName, matchText);
         return comparison > 0 ? professor : best;
     });
+}
+
+
+function hasObviousDepartmentConflict(subjectName, department, searchName, professor) {
+    if (!subjectName || !department || hasCompleteExactNameMatch(searchName, professor)) {
+        return false;
+    }
+
+    const subjectDiscipline = classifyDiscipline(subjectName);
+    const departmentDiscipline = classifyDiscipline(department);
+    if (!subjectDiscipline || !departmentDiscipline || subjectDiscipline === departmentDiscipline) {
+        return false;
+    }
+
+    return OBVIOUS_DISCIPLINE_CONFLICTS.has(
+        [subjectDiscipline, departmentDiscipline].sort().join("|")
+    );
+}
+
+
+function hasCompleteExactNameMatch(searchName, professor) {
+    const searchTokens = tokenizeName(searchName);
+    const firstNameTokens = tokenizeName(professor.firstName);
+    const lastNameTokens = tokenizeName(professor.lastName);
+    if (searchTokens.length < 2 || firstNameTokens.length === 0 || lastNameTokens.length === 0) {
+        return false;
+    }
+
+    return searchTokens.some((searchToken, firstIndex) =>
+        firstNameTokens.includes(searchToken)
+        && searchTokens.some((lastToken, lastIndex) =>
+            lastIndex !== firstIndex && lastNameTokens.includes(lastToken)
+        )
+    );
+}
+
+
+function classifyDiscipline(value) {
+    const normalizedValue = normalizeName(value);
+    if (!normalizedValue) {
+        return "";
+    }
+    const paddedValue = ` ${normalizedValue} `;
+    for (const [discipline, phrases] of Object.entries(DISCIPLINE_PHRASES)) {
+        if (phrases.some(phrase => paddedValue.includes(` ${phrase} `))) {
+            return discipline;
+        }
+    }
+    return "";
 }
 
 
@@ -797,8 +887,12 @@ function fetchAlias(departmentName, backToOriginal = false) {
 }
 
 
-function makeProfessorCacheKey(profName, matchText) {
-    return JSON.stringify([normalizeName(profName), preprocessSearchText(matchText)]);
+function makeProfessorCacheKey(profName, matchText, subjectName = "") {
+    return JSON.stringify([
+        normalizeName(profName),
+        preprocessSearchText(matchText),
+        normalizeName(subjectName)
+    ]);
 }
 
 

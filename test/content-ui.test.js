@@ -176,7 +176,7 @@ test("fetchProfStats handles successful, missing, runtime, background, and throw
         await t.test(value.name, async subtest => {
             const runtime = await createContentRuntime({sendMessage: value.handler});
             subtest.after(() => runtime.close());
-            const promise = runtime.evaluate("fetchProfStats")(" Ada ", " CS ");
+            const promise = runtime.evaluate("fetchProfStats")(" Ada ", " CS ", " Computer Science ");
             if (value.error) {
                 await assert.rejects(promise, value.error);
             } else {
@@ -184,7 +184,8 @@ test("fetchProfStats handles successful, missing, runtime, background, and throw
                 assert.deepEqual(runtime.sentMessages[0], {
                     action: "fetchProfStats",
                     matchText: " CS ",
-                    profName: " Ada "
+                    profName: " Ada ",
+                    subjectName: " Computer Science "
                 });
             }
         });
@@ -332,6 +333,7 @@ test("SOC rating integration deduplicates names and converts background failures
     assert.equal(bubble.firstChild.textContent, "Error");
     assert.equal(bubble.classList.contains("jmp-pulsating"), false);
     assert.match(runtime.sentMessages[0].matchText, /Data Structures Computer Science/);
+    assert.equal(runtime.sentMessages[0].subjectName, "Computer Science");
 });
 
 
@@ -353,6 +355,7 @@ test("SOC rating integration populates successful asynchronous lookups", async t
         null
     );
     await flushTasks(3);
+    assert.equal(runtime.sentMessages[0].subjectName, "Mathematics");
     assert.equal(runtime.document.querySelector(".jmp-rating-bubble").firstChild.textContent, "4.8");
     assert.equal(runtime.document.querySelector(".jmp-rating-bubble").classList.contains("jmp-pulsating"), false);
 });
