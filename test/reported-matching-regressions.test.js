@@ -91,6 +91,14 @@ const victorBarrettoAranda = professorNode({
     department: "Mathematics",
     numRatings: 17
 });
+const dRandallSmith = professorNode({
+    id: "d-randall-smith",
+    legacyId: 1_818_769,
+    firstName: "D. Randall",
+    lastName: "Smith",
+    department: "Sociology",
+    numRatings: 2
+});
 
 
 test("reported regression: exact WEIJIE SONG outranks the Wei Song prefix match", async () => {
@@ -110,6 +118,37 @@ test("reported regression: exact WEIJIE SONG outranks the Wei Song prefix match"
     assert.ok(
         runtime.evaluate("professorNameMatchScore")("WEIJIE SONG", weijieSong)
         > runtime.evaluate("professorNameMatchScore")("WEIJIE SONG", weiSong)
+    );
+});
+
+
+test("reported regression: complete DOMECQ SMITH does not match an unrelated D. Randall Smith", async () => {
+    let fetchCount = 0;
+    const runtime = await createBackgroundRuntime({
+        storedItems: currentCacheMetadata(),
+        fetchImpl: async () => {
+            fetchCount += 1;
+            return searchResponse([dRandallSmith]);
+        }
+    });
+
+    const selected = await runtime.evaluate("fetchMostLikelyProfessor")(
+        "DOMECQ SMITH",
+        "INTRODUCTION TO MUSIC THEORY ONLINE Music",
+        "Music"
+    );
+
+    assert.equal(selected, null);
+    assert.equal(fetchCount, 5);
+    assert.equal(runtime.evaluate("professorNameMatches")("DOMECQ SMITH", dRandallSmith), false);
+    assert.equal(
+        runtime.evaluate("hasObviousDepartmentConflict")(
+            "Music",
+            dRandallSmith.department,
+            "DOMECQ SMITH",
+            dRandallSmith
+        ),
+        true
     );
 });
 

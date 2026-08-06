@@ -42,6 +42,18 @@ test("professorNameMatches supports single names, middle names, initials, and re
 });
 
 
+test("name initials are accepted only when Rutgers supplied the abbreviation", async () => {
+    const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
+    const score = runtime.evaluate("nameTokenMatchScore");
+    const matches = runtime.evaluate("professorNameMatches");
+
+    assert.equal(score("d", "domecq"), 0.8);
+    assert.equal(score("domecq", "d"), 0);
+    assert.equal(matches("D Smith", {firstName: "Domecq", lastName: "Smith"}), true);
+    assert.equal(matches("Domecq Smith", {firstName: "D. Randall", lastName: "Smith"}), false);
+});
+
+
 test("compound surname approximation permits only one insertion or deletion with an exact anchor", async () => {
     const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
     const score = runtime.evaluate("compoundSurnameMatchScore");
@@ -188,9 +200,14 @@ test("obvious discipline conflicts veto weak-name candidates without entering ad
     assert.equal(conflicts("Unknown Studies", "Music", "Lee", musicLee), false);
     assert.equal(conflicts("Mathematics", "", "Lee", musicLee), false);
     assert.equal(conflicts("Theater", "Nursing", "Lee", musicLee), true);
+    assert.equal(conflicts("Music", "Sociology", "Domecq Smith", {
+        firstName: "D. Randall",
+        lastName: "Smith"
+    }), true);
     assert.equal(classify("MATHEMATICS (640)"), "mathematics");
     assert.equal(classify("Musicology and Music"), "music");
     assert.equal(classify("Biomedical Engineering"), "engineering");
+    assert.equal(classify("Sociology and Social Work"), "social_sciences");
     assert.equal(classify("unclassified interdisciplinary studies"), "");
     assert.equal(classify(null), "");
 });

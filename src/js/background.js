@@ -72,6 +72,10 @@ const DISCIPLINE_PHRASES = Object.freeze({
     performing_arts: Object.freeze(["performing arts", "dance", "theater", "theatre", "acting"]),
     computing: Object.freeze(["computer science", "computing", "informatics", "information technology", "data science"]),
     engineering: Object.freeze(["engineering"]),
+    social_sciences: Object.freeze([
+        "social science", "social sciences", "sociology", "social work",
+        "anthropology", "political science", "psychology", "criminal justice"
+    ]),
     life_sciences: Object.freeze(["life science", "biology", "biological science", "genetics", "microbiology", "biochemistry", "neuroscience"]),
     physical_sciences: Object.freeze(["physical science", "physics", "chemistry", "geology", "astronomy", "earth science"]),
     health_sciences: Object.freeze(["health science", "nursing", "medicine", "medical", "pharmacy", "dentistry", "dental", "public health"])
@@ -89,6 +93,7 @@ const OBVIOUS_DISCIPLINE_CONFLICTS = new Set([
     "mathematics|music",
     "mathematics|performing_arts",
     "music|physical_sciences",
+    "music|social_sciences",
     "performing_arts|physical_sciences"
 ]);
 
@@ -492,11 +497,14 @@ function nameTokenMatchScore(left, right) {
         return 0.95;
     }
 
-    const shorterLength = Math.min(left.length, right.length);
-    const longerLength = Math.max(left.length, right.length);
-    if (shorterLength === 1 && (left.startsWith(right) || right.startsWith(left))) {
+    // A Rutgers initial may match a full RMP name, but the reverse is too ambiguous:
+    // a complete Rutgers first name must not match every RMP professor with that initial.
+    if (left.length === 1 && right.startsWith(left)) {
         return 0.8;
     }
+
+    const shorterLength = Math.min(left.length, right.length);
+    const longerLength = Math.max(left.length, right.length);
     if (shorterLength >= 3 && (left.startsWith(right) || right.startsWith(left))) {
         return 0.7 + (0.15 * shorterLength / longerLength);
     }

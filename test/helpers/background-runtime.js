@@ -28,7 +28,7 @@ export function emptySearchResponse() {
 export function currentCacheMetadata(overrides = {}) {
     return {
         cacheTimestamp: Date.now(),
-        cacheSchemaVersion: 4,
+        cacheSchemaVersion: 5,
         ...overrides
     };
 }

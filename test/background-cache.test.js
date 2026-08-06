@@ -60,7 +60,7 @@ test("initializeCache replaces missing, mismatched, non-numeric, and stale metad
     const maxAge = 3 * 7 * 24 * 60 * 60 * 1_000;
     const cases = {
         missing: {},
-        "schema mismatch": currentCacheMetadata({cacheSchemaVersion: 1}),
+        "previous matching schema": currentCacheMetadata({cacheSchemaVersion: 4}),
         stale: currentCacheMetadata({cacheTimestamp: Date.now() - maxAge - 1}),
         "non-numeric timestamp": currentCacheMetadata({cacheTimestamp: "today"})
     };
@@ -71,7 +71,7 @@ test("initializeCache replaces missing, mismatched, non-numeric, and stale metad
                 storedItems: {...storedItems, "professor:old": professorNode()}
             });
             assert.equal(runtime.storageCalls.clear, 1);
-            assert.equal(runtime.storageItems.cacheSchemaVersion, 4);
+            assert.equal(runtime.storageItems.cacheSchemaVersion, 5);
             assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
             assert.equal("professor:old" in runtime.storageItems, false);
         });
@@ -321,7 +321,7 @@ test("resetCache clears memory and storage, writes fresh metadata, and invalidat
     assert.equal((await lookupPromise).id, "teacher-1");
 
     assert.equal(runtime.storageCalls.clear, 1);
-    assert.equal(runtime.storageItems.cacheSchemaVersion, 4);
+    assert.equal(runtime.storageItems.cacheSchemaVersion, 5);
     assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
     assert.equal(Object.keys(runtime.storageItems).some(key => key.startsWith("professor:")), false);
     assert.equal(runtime.evaluate("filteredProfStats.size"), 0);
