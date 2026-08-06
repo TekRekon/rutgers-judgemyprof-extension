@@ -116,7 +116,7 @@ test("selectMostLikelyProfessor handles empty, singleton, department, and rating
     assert.equal(select([], "anything"), null);
     assert.equal(select([professors[0]], "physics"), professors[0]);
     assert.equal(select(professors, "introductory physics laboratory").id, "physics");
-    assert.equal(select(professors, "business management").id, "management");
+    assert.equal(select(professors, "business management").id, "business");
     assert.equal(select(professors, "").id, "physics");
     assert.deepEqual(professors, snapshot);
 

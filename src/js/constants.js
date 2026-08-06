@@ -1,5 +1,5 @@
 self.API_URL = "https://www.ratemyprofessors.com/graphql";
-self.CACHE_SCHEMA_VERSION = 2;
+self.CACHE_SCHEMA_VERSION = 3;
 self.CACHE_MAX_AGE_MS = 3 * 7 * 24 * 60 * 60 * 1000;
 self.MAX_CONCURRENT_API_REQUESTS = 6;
 self.MAX_FETCH_RETRIES = 2;
@@ -55,13 +55,17 @@ self.CAMPUS_CODES = {
     ONLINE_NEW_BRUNSWICK: 'ONLINE_NB',
 };
 
-self.FUSE_OPTIONS = Object.freeze({
-    includeScore: true,
-    threshold: 1, // Adjust threshold for "fuzzy" matches
-    ignoreLocation: true, // Since we're not interested in where the term is in the string
-    minMatchCharLength: 4, // Minimum number of characters that must be matched for a result to be returned
-    findAllMatches: true, // Find all matches, regardless of score
-    isCaseSensitive: false, // Turn off case sensitivity
+// Keep equivalences verified and sparse. Broad nickname/fuzzy matching creates high-cost false positives.
+self.nameTokenAliases = Object.freeze({
+    sandy: "sandra",
+    sandra: "sandra",
+    caudrado: "cuadrado",
+    cuadrado: "cuadrado"
+});
+
+// RMP currently stores this surname with transposed letters. This is queried only after the original name has no match.
+self.professorSearchCorrections = Object.freeze({
+    cuadrado: "caudrado"
 });
 
 //sorted by number of professors rated in each school

@@ -1,4 +1,4 @@
-importScripts("./constants.js", "./fuse.js");
+importScripts("./constants.js");
 
 
 const CACHE_KEY_PREFIX = "professor:";
@@ -8,6 +8,7 @@ const SEARCH_SCHOOL_LIMIT = 5;
 const SEARCH_RESULTS_PER_SCHOOL = 20;
 const ERROR_RESPONSE_MAX_BYTES = 4_096;
 const ERROR_REASON_MAX_LENGTH = 160;
+const MIN_NAME_MATCH_SCORE = 0.85;
 
 const STOP_WORDS = new Set([
     "the", "and", "or", "of", "in", "for", "to", "a", "an", "is", "at", "by", "on", "with"
@@ -150,31 +151,26 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
 
     const generation = cacheGeneration;
     const promise = (async () => {
-        const settledSchoolResults = await Promise.allSettled(
-            SCHOOLS.slice(0, SEARCH_SCHOOL_LIMIT).map(([schoolID]) =>
-                fetchProfessorCandidates(profName, schoolID, SEARCH_RESULTS_PER_SCHOOL)
-            )
-        );
-        const schoolResults = settledSchoolResults
-            .filter(result => result.status === "fulfilled")
-            .map(result => result.value);
-        if (schoolResults.length === 0) {
-            throw settledSchoolResults[0]?.reason ?? new Error("All professor searches failed");
+        const primarySearch = await searchProfessorSchools(profName);
+        if (primarySearch.schoolResults.length === 0) {
+            throw primarySearch.firstFailure ?? new Error("All professor searches failed");
         }
-        const allSchoolsSucceeded = schoolResults.length === settledSchoolResults.length;
 
         const professorsByID = new Map();
-        for (const professors of schoolResults) {
-            for (const professor of professors) {
-                if (professorNameMatches(profName, professor)) {
-                    professorsByID.set(professor.id, professor);
-                }
-            }
+        collectMatchingProfessors(professorsByID, primarySearch.schoolResults, profName);
+
+        let allSchoolsSucceeded = primarySearch.allSucceeded;
+        const correctedSearchName = getCorrectedProfessorSearchName(profName);
+        if (professorsByID.size === 0 && correctedSearchName) {
+            const fallbackSearch = await searchProfessorSchools(correctedSearchName);
+            allSchoolsSucceeded = allSchoolsSucceeded && fallbackSearch.allSucceeded;
+            collectMatchingProfessors(professorsByID, fallbackSearch.schoolResults, profName);
         }
 
         const selectedProfessor = selectMostLikelyProfessor(
             Array.from(professorsByID.values()),
-            matchText
+            matchText,
+            profName
         );
 
         if (selectedProfessor && allSchoolsSucceeded && generation === cacheGeneration) {
@@ -201,6 +197,45 @@ async function fetchMostLikelyProfessor(profName, matchText = "") {
     };
     promise.then(removePendingPromise, removePendingPromise);
     return promise;
+}
+
+
+async function searchProfessorSchools(profName) {
+    const settledResults = await Promise.allSettled(
+        SCHOOLS.slice(0, SEARCH_SCHOOL_LIMIT).map(([schoolID]) =>
+            fetchProfessorCandidates(profName, schoolID, SEARCH_RESULTS_PER_SCHOOL)
+        )
+    );
+    return {
+        schoolResults: settledResults
+            .filter(result => result.status === "fulfilled")
+            .map(result => result.value),
+        allSucceeded: settledResults.every(result => result.status === "fulfilled"),
+        firstFailure: settledResults.find(result => result.status === "rejected")?.reason
+    };
+}
+
+
+function collectMatchingProfessors(professorsByID, schoolResults, profName) {
+    for (const professors of schoolResults) {
+        for (const professor of professors) {
+            if (professorNameMatches(profName, professor)) {
+                professorsByID.set(professor.id, professor);
+            }
+        }
+    }
+}
+
+
+function getCorrectedProfessorSearchName(profName) {
+    const tokens = tokenizeName(profName);
+    let changed = false;
+    const correctedTokens = tokens.map(token => {
+        const corrected = professorSearchCorrections[token] ?? token;
+        changed ||= corrected !== token;
+        return corrected;
+    });
+    return changed ? correctedTokens.join(" ") : "";
 }
 
 
@@ -278,33 +313,74 @@ function toFiniteNumber(value) {
 
 
 function professorNameMatches(searchName, professor) {
+    return professorNameMatchScore(searchName, professor) >= MIN_NAME_MATCH_SCORE;
+}
+
+
+function professorNameMatchScore(searchName, professor) {
     const searchTokens = tokenizeName(searchName);
     const firstNameTokens = tokenizeName(professor.firstName);
     const lastNameTokens = tokenizeName(professor.lastName);
     const foundNameTokens = [...firstNameTokens, ...lastNameTokens];
 
     if (searchTokens.length === 0 || foundNameTokens.length === 0) {
-        return false;
+        return 0;
     }
 
     if (searchTokens.length === 1) {
-        return foundNameTokens.some(token => namesOverlap(searchTokens[0], token));
+        return Math.max(...foundNameTokens.map(token => nameTokenMatchScore(searchTokens[0], token)));
     }
 
-    const firstNameMatchIndex = searchTokens.findIndex(searchToken =>
-        firstNameTokens.some(foundToken => namesOverlap(searchToken, foundToken))
-    );
-    const lastNameMatchIndex = searchTokens.findIndex((searchToken, index) =>
-        index !== firstNameMatchIndex
-        && lastNameTokens.some(foundToken => namesOverlap(searchToken, foundToken))
-    );
+    let bestScore = 0;
+    for (let firstIndex = 0; firstIndex < searchTokens.length; firstIndex += 1) {
+        const firstScore = Math.max(
+            0,
+            ...firstNameTokens.map(token => nameTokenMatchScore(searchTokens[firstIndex], token))
+        );
+        if (firstScore === 0) {
+            continue;
+        }
 
-    return firstNameMatchIndex !== -1 && lastNameMatchIndex !== -1;
+        for (let lastIndex = 0; lastIndex < searchTokens.length; lastIndex += 1) {
+            if (lastIndex === firstIndex) {
+                continue;
+            }
+            const lastScore = Math.max(
+                0,
+                ...lastNameTokens.map(token => nameTokenMatchScore(searchTokens[lastIndex], token))
+            );
+            bestScore = Math.max(bestScore, (firstScore + lastScore) / 2);
+        }
+    }
+
+    return bestScore;
 }
 
 
-function namesOverlap(left, right) {
-    return Boolean(left && right && (left.includes(right) || right.includes(left)));
+function nameTokenMatchScore(left, right) {
+    if (!left || !right) {
+        return 0;
+    }
+    if (left === right) {
+        return 1;
+    }
+
+    const canonicalLeft = nameTokenAliases[left];
+    const canonicalRight = nameTokenAliases[right];
+    if (canonicalLeft && canonicalLeft === canonicalRight) {
+        return 0.95;
+    }
+
+    const shorterLength = Math.min(left.length, right.length);
+    const longerLength = Math.max(left.length, right.length);
+    if (shorterLength === 1 && (left.startsWith(right) || right.startsWith(left))) {
+        return 0.8;
+    }
+    if (shorterLength >= 3 && (left.startsWith(right) || right.startsWith(left))) {
+        return 0.7 + (0.15 * shorterLength / longerLength);
+    }
+
+    return 0;
 }
 
 
@@ -329,7 +405,7 @@ function normalizeName(name) {
 }
 
 
-function selectMostLikelyProfessor(professors, matchText) {
+function selectMostLikelyProfessor(professors, matchText, searchName = "") {
     if (professors.length === 0) {
         return null;
     }
@@ -337,26 +413,66 @@ function selectMostLikelyProfessor(professors, matchText) {
         return professors[0];
     }
 
-    let candidates = professors;
-    const preprocessedMatchText = preprocessSearchText(matchText);
-    const comparableDepartments = professors.map(professor => fetchAlias(professor.department));
+    return professors.reduce((best, professor) => {
+        const comparison = compareProfessorCandidates(professor, best, searchName, matchText);
+        return comparison > 0 ? professor : best;
+    });
+}
 
-    if (preprocessedMatchText && comparableDepartments.some(Boolean)) {
-        const results = new Fuse(comparableDepartments, FUSE_OPTIONS).search(preprocessedMatchText);
-        if (results.length > 0) {
-            const bestScore = results[0].score;
-            const bestDepartments = new Set(
-                results
-                    .filter(result => Math.abs(result.score - bestScore) < Number.EPSILON)
-                    .map(result => result.item)
-            );
-            candidates = professors.filter((_, index) => bestDepartments.has(comparableDepartments[index]));
-        }
+
+function compareProfessorCandidates(left, right, searchName, matchText) {
+    const leftNameScore = searchName ? professorNameMatchScore(searchName, left) : 1;
+    const rightNameScore = searchName ? professorNameMatchScore(searchName, right) : 1;
+    if (leftNameScore !== rightNameScore) {
+        return leftNameScore - rightNameScore;
     }
 
-    return candidates.reduce((best, professor) =>
-        professor.numRatings > best.numRatings ? professor : best
-    );
+    const leftDepartmentScore = departmentMatchScore(left.department, matchText);
+    const rightDepartmentScore = departmentMatchScore(right.department, matchText);
+    if (leftDepartmentScore !== rightDepartmentScore) {
+        return leftDepartmentScore - rightDepartmentScore;
+    }
+
+    return left.numRatings - right.numRatings;
+}
+
+
+function departmentMatchScore(department, matchText) {
+    const matchTokens = preprocessSearchText(matchText).split(" ").filter(Boolean);
+    const departmentTokens = preprocessSearchText(department).split(" ").filter(Boolean);
+    if (matchTokens.length === 0 || departmentTokens.length === 0) {
+        return 0;
+    }
+
+    const originalScore = departmentTokens.reduce((total, departmentToken) =>
+        total + Math.max(...matchTokens.map(matchToken => departmentTokenMatchScore(departmentToken, matchToken))), 0
+    ) / departmentTokens.length;
+
+    const alias = fetchAlias(department);
+    if (alias === department) {
+        return originalScore;
+    }
+    const aliasTokens = preprocessSearchText(alias).split(" ").filter(Boolean);
+    const aliasScore = Math.max(
+        0,
+        ...aliasTokens.flatMap(aliasToken =>
+            matchTokens.map(matchToken => departmentTokenMatchScore(aliasToken, matchToken))
+        )
+    ) * 0.9;
+    return Math.max(originalScore, aliasScore);
+}
+
+
+function departmentTokenMatchScore(left, right) {
+    if (left === right) {
+        return 1;
+    }
+    const shorterLength = Math.min(left.length, right.length);
+    const longerLength = Math.max(left.length, right.length);
+    if (shorterLength >= 4 && (left.startsWith(right) || right.startsWith(left))) {
+        return 0.75 + (0.2 * shorterLength / longerLength);
+    }
+    return 0;
 }
 
 

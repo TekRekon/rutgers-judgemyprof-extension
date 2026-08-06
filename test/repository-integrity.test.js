@@ -101,6 +101,8 @@ test("production sources preserve secure endpoints, safe rendering, and required
 
     assert.doesNotMatch(background, /Authorization|credentials\s*:\s*["']include/i);
     assert.match(background, /credentials:\s*["']omit["']/);
+    assert.match(background, /^importScripts\("\.\/constants\.js"\);/);
+    assert.doesNotMatch(background, /Fuse|fuse\.js/);
     assert.doesNotMatch(content, /http:\/\/(?:sims|sis|www\.ratemyprofessors|www\.google)/);
     assert.doesNotMatch(`${content}\n${popup}`, /\.innerHTML\s*=/);
     assert.match(content, /noopener,noreferrer/);

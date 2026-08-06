@@ -71,7 +71,7 @@ test("initializeCache replaces missing, mismatched, non-numeric, and stale metad
                 storedItems: {...storedItems, "professor:old": professorNode()}
             });
             assert.equal(runtime.storageCalls.clear, 1);
-            assert.equal(runtime.storageItems.cacheSchemaVersion, 2);
+            assert.equal(runtime.storageItems.cacheSchemaVersion, 3);
             assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
             assert.equal("professor:old" in runtime.storageItems, false);
         });
@@ -297,7 +297,7 @@ test("resetCache clears memory and storage, writes fresh metadata, and invalidat
     assert.equal((await lookupPromise).id, "teacher-1");
 
     assert.equal(runtime.storageCalls.clear, 1);
-    assert.equal(runtime.storageItems.cacheSchemaVersion, 2);
+    assert.equal(runtime.storageItems.cacheSchemaVersion, 3);
     assert.equal(typeof runtime.storageItems.cacheTimestamp, "number");
     assert.equal(Object.keys(runtime.storageItems).some(key => key.startsWith("professor:")), false);
     assert.equal(runtime.evaluate("filteredProfStats.size"), 0);

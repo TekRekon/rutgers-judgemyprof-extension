@@ -6,10 +6,8 @@ import {instrumentSource} from "./instrument-source.js";
 
 
 const constantsURL = new URL("../../src/js/constants.js", import.meta.url);
-const fuseURL = new URL("../../src/js/fuse.js", import.meta.url);
 const backgroundURL = new URL("../../src/js/background.js", import.meta.url);
 const constantsSource = instrumentSource(await readFile(constantsURL, "utf8"), fileURLToPath(constantsURL));
-const fuseSource = await readFile(fuseURL, "utf8");
 const backgroundSource = instrumentSource(await readFile(backgroundURL, "utf8"), fileURLToPath(backgroundURL));
 
 
@@ -30,7 +28,7 @@ export function emptySearchResponse() {
 export function currentCacheMetadata(overrides = {}) {
     return {
         cacheTimestamp: Date.now(),
-        cacheSchemaVersion: 2,
+        cacheSchemaVersion: 3,
         ...overrides
     };
 }
@@ -126,7 +124,6 @@ export async function createBackgroundRuntime({
     context.self = context;
 
     vm.runInContext(constantsSource, context, {filename: "src/js/constants.js"});
-    vm.runInContext(fuseSource, context, {filename: "src/js/fuse.js"});
     vm.runInContext(backgroundSource, context, {filename: "src/js/background.js"});
     await vm.runInContext("cacheReady", context);
 

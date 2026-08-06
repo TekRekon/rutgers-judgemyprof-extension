@@ -8,7 +8,7 @@ test("network and cache constants are bounded and internally consistent", async 
     const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
 
     assert.equal(runtime.context.API_URL, "https://www.ratemyprofessors.com/graphql");
-    assert.equal(runtime.context.CACHE_SCHEMA_VERSION, 2);
+    assert.equal(runtime.context.CACHE_SCHEMA_VERSION, 3);
     assert.equal(runtime.context.CACHE_MAX_AGE_MS, 3 * 7 * 24 * 60 * 60 * 1_000);
     assert.ok(runtime.context.MAX_CONCURRENT_API_REQUESTS >= 1);
     assert.ok(runtime.context.MAX_CONCURRENT_API_REQUESTS <= 10);
@@ -62,12 +62,12 @@ test("school configuration is ordered, unique, non-empty, and includes every Rut
 });
 
 
-test("fuzzy-search and alias configuration cannot be mutated at runtime", async () => {
+test("department and verified-name alias configuration cannot be mutated at runtime", async () => {
     const runtime = await createBackgroundRuntime({storedItems: currentCacheMetadata()});
 
-    assert.equal(Object.isFrozen(runtime.context.FUSE_OPTIONS), true);
     assert.equal(Object.isFrozen(runtime.context.departmentAliases), true);
-    assert.equal(runtime.context.FUSE_OPTIONS.includeScore, true);
-    assert.ok(runtime.context.FUSE_OPTIONS.threshold >= 0 && runtime.context.FUSE_OPTIONS.threshold <= 1);
-    assert.ok(runtime.context.FUSE_OPTIONS.minMatchCharLength >= 1);
+    assert.equal(Object.isFrozen(runtime.context.nameTokenAliases), true);
+    assert.equal(Object.isFrozen(runtime.context.professorSearchCorrections), true);
+    assert.equal(runtime.context.nameTokenAliases.sandy, "sandra");
+    assert.equal(runtime.context.professorSearchCorrections.cuadrado, "caudrado");
 });
